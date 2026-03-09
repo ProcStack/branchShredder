@@ -2,12 +2,12 @@ from PyQt6.QtWidgets import (QMainWindow, QGraphicsView, QGraphicsScene,
                              QWidget, QHBoxLayout, QVBoxLayout, 
                              QPushButton, QToolBar, QMessageBox, 
                              QInputDialog, QApplication, QFileDialog,
-                             QSplitter)
+                             QSplitter, QSizePolicy)
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF
 from PyQt6.QtGui import QAction, QPainter, QColor, QPen
 
 import os
-from models import NodeData, EventType, ProjectSettings
+from models import NodeData, NodeType, ProjectSettings
 from graph_items import BaseNodeItem, ConnectionItem, SocketItem
 from widgets import NodeInspector, SettingsSidebar, StoryWritingBar, ConnectionInspector
 from manager import ProjectManager
@@ -32,32 +32,45 @@ class GraphScene(QGraphicsScene):
     def drawBackground(self, painter, rect):
         super().drawBackground(painter, rect)
 
-        GRID_MINOR = 60
-        GRID_MAJOR = 180
+        if not self.settings.show_grid:
+            return
 
-        # Snap the exposed rect outward to the nearest grid multiple so lines
-        # always start off-screen and never leave a partial-cell gap at edges.
+        GRID_MINOR = self.settings.grid_minor
+        GRID_MAJOR = self.settings.grid_major
+
+        minor_pen = QPen(QColor(34, 34, 34), 0)   # 0 = cosmetic 1px regardless of zoom
+        major_pen = QPen(QColor(50, 50, 50), 0)
+
+        # Snap rect outward so lines always start off-screen.
         left   = int(rect.left())   - (int(rect.left())   % GRID_MINOR)
         top    = int(rect.top())    - (int(rect.top())    % GRID_MINOR)
         right  = int(rect.right())  + GRID_MINOR
         bottom = int(rect.bottom()) + GRID_MINOR
 
-        minor_pen = QPen(QColor(34, 34, 34), 0)   # 0 = cosmetic 1px regardless of zoom
-        major_pen = QPen(QColor(50, 50, 50), 0)
-
-        # Vertical lines
+        # Minor lines — step exactly by GRID_MINOR
+        painter.setPen(minor_pen)
         x = left
         while x <= right:
-            painter.setPen(major_pen if x % GRID_MAJOR == 0 else minor_pen)
             painter.drawLine(x, top, x, bottom)
             x += GRID_MINOR
-
-        # Horizontal lines
         y = top
         while y <= bottom:
-            painter.setPen(major_pen if y % GRID_MAJOR == 0 else minor_pen)
             painter.drawLine(left, y, right, y)
             y += GRID_MINOR
+
+        # Major lines drawn on top — step exactly by GRID_MAJOR
+        # (independent of GRID_MINOR so spacing is always correct)
+        major_left = int(rect.left()) - (int(rect.left()) % GRID_MAJOR)
+        major_top  = int(rect.top())  - (int(rect.top())  % GRID_MAJOR)
+        painter.setPen(major_pen)
+        x = major_left
+        while x <= right:
+            painter.drawLine(x, top, x, bottom)
+            x += GRID_MAJOR
+        y = major_top
+        while y <= bottom:
+            painter.drawLine(left, y, right, y)
+            y += GRID_MAJOR
 
     def add_node(self, x, y, data=None):
         if not data:
@@ -72,6 +85,9 @@ class GraphScene(QGraphicsScene):
         return node_item
 
     def create_connection(self, socket_start, socket_end):
+        # Normalize: socket_start must be the output, socket_end the input
+        if socket_start.is_input:
+            socket_start, socket_end = socket_end, socket_start
         # Reject self-connections
         if socket_start.node_item is socket_end.node_item:
             return
@@ -187,15 +203,69 @@ class GraphView(QGraphicsView):
                         break
             
             if found_socket:
-                self._current_connection.socket_end = found_socket
+                # Normalize: ensure socket_start is always the output
+                start_sock = self._current_connection.socket_start
+                end_sock = found_socket
+                if start_sock.is_input:
+                    start_sock, end_sock = end_sock, start_sock
+                self._current_connection.socket_start = start_sock
+                self._current_connection.socket_end = end_sock
                 self._current_connection.updatePath()
                 # Finalize connection lists
-                self._current_connection.socket_start.connections.append(self._current_connection)
-                found_socket.connections.append(self._current_connection)
+                start_sock.connections.append(self._current_connection)
+                end_sock.connections.append(self._current_connection)
                 self._current_connection = None
             else:
-                self.scene().removeItem(self._current_connection)
-                self._current_connection = None
+                # Check if dropped onto a node body — connect to its first compatible socket
+                origin_socket = self._current_connection.socket_start
+                found_node = None
+                for item in items:
+                    temp = item
+                    while temp and not isinstance(temp, BaseNodeItem):
+                        temp = temp.parentItem()
+                    if isinstance(temp, BaseNodeItem) and temp is not origin_socket.node_item:
+                        found_node = temp
+                        break
+
+                if found_node:
+                    # Find first compatible socket on the target node
+                    target_socket = None
+                    if not origin_socket.is_input:
+                        # origin is output → target needs an input
+                        target_socket = found_node.inputs[0] if found_node.inputs else None
+                    else:
+                        # origin is input → target needs an output
+                        target_socket = found_node.outputs[0] if found_node.outputs else None
+
+                    if target_socket:
+                        # Normalize: ensure socket_start is always the output
+                        if origin_socket.is_input:
+                            self._current_connection.socket_start = target_socket
+                            self._current_connection.socket_end = origin_socket
+                        else:
+                            self._current_connection.socket_end = target_socket
+                        self._current_connection.updatePath()
+                        origin_socket.connections.append(self._current_connection)
+                        target_socket.connections.append(self._current_connection)
+                        self._current_connection = None
+                    else:
+                        self.scene().removeItem(self._current_connection)
+                        self._current_connection = None
+                else:
+                    # Maybe spawn a new node at the drop position
+                    self.scene().removeItem(self._current_connection)
+                    self._current_connection = None
+                    if self.settings.create_node_on_empty_drop:
+                        drop_scene_pos = self.mapToScene(event.pos())
+                        new_data = NodeData()
+                        new_node = self.scene().add_node(
+                            drop_scene_pos.x(), drop_scene_pos.y(), new_data
+                        )
+                        # Connect origin output → new node input, or input → new node output
+                        if not origin_socket.is_input and new_node.inputs:
+                            self.scene().create_connection(origin_socket, new_node.inputs[0])
+                        elif origin_socket.is_input and new_node.outputs:
+                            self.scene().create_connection(new_node.outputs[0], origin_socket)
 
         # Check for drop-on-curve insertion
         if (event.button() == Qt.MouseButton.LeftButton and
@@ -251,6 +321,18 @@ class GraphView(QGraphicsView):
                         for conn in sock.connections[:]:
                             self._remove_connection(conn)
             return
+        elif event.key() == Qt.Key.Key_U:
+            main_win = self.window()
+            if hasattr(main_win, 'exit_subnet_scene'):
+                main_win.exit_subnet_scene()
+            return
+        elif event.key() == Qt.Key.Key_I:
+            selected = self.scene().selectedItems()
+            for item in selected:
+                if isinstance(item, BaseNodeItem):
+                    self.handle_node_double_click(item)
+                    break
+            return
         super().keyPressEvent(event)
 
     def mouseMoveEvent(self, event):
@@ -259,7 +341,9 @@ class GraphView(QGraphicsView):
             self._current_connection.updatePath()
 
         if hasattr(self, '_right_click_zoom') and self._right_click_zoom:
-            diff = event.pos().y() - self._last_mouse_pos.y()
+            diffX = event.pos().x() - self._last_mouse_pos.x()
+            diffY = -event.pos().y() + self._last_mouse_pos.y()
+            diff = diffX if abs(diffX) > abs(diffY) else diffY
             factor = 1.001 ** -diff
             self.scale(factor, factor)
             self._last_mouse_pos = event.pos()
@@ -267,6 +351,13 @@ class GraphView(QGraphicsView):
 
     def mouseDoubleClickEvent(self, event):
         item = self.itemAt(event.pos())
+
+        # Double-click on a connection → insert a Dot node
+        if isinstance(item, ConnectionItem) and item.socket_end:
+            scene_pos = self.mapToScene(event.pos())
+            self._insert_dot_on_connection(item, scene_pos)
+            return
+
         # Traverse up to find BaseNodeItem if double clicked on label/image
         temp = item
         while temp and not isinstance(temp, BaseNodeItem):
@@ -275,6 +366,16 @@ class GraphView(QGraphicsView):
             self.handle_node_double_click(temp)
         else:
             super().mouseDoubleClickEvent(event)
+
+    def _insert_dot_on_connection(self, conn_item, scene_pos):
+        old_start = conn_item.socket_start
+        old_end = conn_item.socket_end
+        self._remove_connection(conn_item)
+        dot_data = NodeData("", NodeType.DOT)
+        dot_node = self.scene().add_node(scene_pos.x() - 15, scene_pos.y() - 15, dot_data)
+        if dot_node.inputs and dot_node.outputs:
+            self.scene().create_connection(old_start, dot_node.inputs[0])
+            self.scene().create_connection(dot_node.outputs[0], old_end)
 
     def handle_node_double_click(self, node_item):
         if not node_item.node_data.is_subnetwork:
@@ -298,8 +399,8 @@ class GraphView(QGraphicsView):
             # This prevents create_sockets() from firing mid-setup when outputs
             # is already cleared (START node added) but no End nodes exist yet,
             # which would cause the original output connections to be dropped.
-            in_data = NodeData("Start", EventType.START)
-            out_data = NodeData("End", EventType.END)
+            in_data = NodeData("Start", NodeType.START)
+            out_data = NodeData("End", NodeType.END)
             new_scene.add_node(100, 300, in_data)
             new_scene.add_node(600, 300, out_data)
 
@@ -325,6 +426,19 @@ class MainWindow(QMainWindow):
         
         # Main vertical splitter (Graph on top, Story on bottom)
         self.v_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.v_splitter.setHandleWidth(5)
+        self.v_splitter.setStyleSheet("""
+            QSplitter::handle {
+                background: #353535;
+                margin: 0px;
+            }
+            QSplitter::handle:hover {
+                background: #6a6a6a;
+            }
+            QSplitter::handle:pressed {
+                background: #888888;
+            }
+        """)
         self.setCentralWidget(self.v_splitter)
 
         # Top Area: Graph + Sidebar
@@ -373,16 +487,17 @@ class MainWindow(QMainWindow):
         self.create_toolbar()
 
     def get_all_character_names(self):
-        # Recursively find all character names from INPUT/START nodes in current and parent scenes
+        # Gather names from all CHARACTER-type nodes in the current scene and all parent scenes
         names = []
         scene = self.view.scene()
         while scene:
             for item in scene.items():
-                if isinstance(item, BaseNodeItem):
-                    if item.node_data.event_type in [EventType.START, EventType.START]:
-                        names.extend(item.node_data.character_names)
+                if isinstance(item, BaseNodeItem) and item.node_data.event_type == NodeType.CHARACTER:
+                    name = item.node_data.name.strip()
+                    if name:
+                        names.append(name)
             scene = scene.parent_scene
-        return list(set(names))
+        return sorted(set(names))
 
     def create_menu(self):
         menubar = self.menuBar()
@@ -406,9 +521,50 @@ class MainWindow(QMainWindow):
         quit_act.triggered.connect(self.close)
         file_menu.addAction(quit_act)
 
+        # -- -- --
+
+        shortcut_menu = menubar.addMenu("&Shortcuts")
+        shortcuts = {
+            "Select Node / Connection Line": "Left Click",
+            "Pan / Move Nodes": "Left Click + Drag",
+            "Zoom": "Right Click + Drag",
+            "Delete Node/Connection": "Del",
+            "Reconnect (drag from socket)": "Click+Drag on Socket",
+            "Insert Dot on Connection": "Double Click on Connection Line",
+            "Insert Node on Connection": "Drag+Drop Node onto Connection Line",
+            "Enter Subnetwork": "Double Click on Node or Click 'Create/Enter Subnet'",
+            "Create / Enter Subnetwork": "Double Click on Node or Press 'I'",
+            "Exit Subnetwork": "Press 'U'"
+        }
+        for action, shortcut in shortcuts.items():
+            act = QAction(f"{action} -- {shortcut}", self)
+            act.setEnabled(False)
+            shortcut_menu.addAction(act)
+
+
     def create_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
         self.addToolBar(toolbar)
+        toolbar.setStyleSheet("""
+            QToolButton {
+                color: #dddddd;
+                background: transparent;
+                border: none;
+                padding: 4px 8px;
+            }
+            QToolButton:hover {
+                background: #3a3a3a;
+                border-radius: 4px;
+            }
+            QToolButton:pressed {
+                background: #2a2a2a;
+                border-radius: 4px;
+            }
+        """)
+        
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
         
         self.add_node_act = QAction("Add Node", self)
         self.add_node_act.triggered.connect(lambda: self.view.scene().add_node(0,0))
@@ -418,15 +574,35 @@ class MainWindow(QMainWindow):
         self.del_node_act.triggered.connect(self.delete_selected_node)
         toolbar.addAction(self.del_node_act)
 
-        self.back_act = QAction("Go Back", self)
-        self.back_act.triggered.connect(self.go_back_scene)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        spacer.setMaximumWidth(100)
+        toolbar.addWidget(spacer)
+
+
+        self.enter_subnet_act = QAction("Create/Enter Subnet", self)
+        self.enter_subnet_act.triggered.connect(self.enter_selected_subnet)
+        toolbar.addAction(self.enter_subnet_act)
+
+        self.back_act = QAction("Exit Subnet", self)
+        self.back_act.triggered.connect(self.exit_subnet_scene)
         toolbar.addAction(self.back_act)
-        
-        toolbar.addSeparator()
-        
+
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        spacer.setMaximumWidth(100)
+        toolbar.addWidget(spacer)
+
+
         self.settings_act = QAction("Project Settings", self)
         self.settings_act.triggered.connect(self.toggle_settings_sidebar)
         toolbar.addAction(self.settings_act)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
 
     def toggle_settings_sidebar(self):
         if self.settings_sidebar.isHidden():
@@ -450,6 +626,7 @@ class MainWindow(QMainWindow):
         if node_item:
             node_data = node_item.node_data
             self.inspector.set_node(node_data)
+            self.inspector.set_available_characters(self.get_all_character_names())
             self._selected_item = node_item
             self._last_event_type = node_data.event_type
             
@@ -481,16 +658,26 @@ class MainWindow(QMainWindow):
                 if self._selected_item.scene() is None:
                     self._selected_item = None
                     return
-                
-                self._selected_item.update_appearance()
-                
-                # Only recreate sockets when event type actually changed
+
                 current_type = self._selected_item.node_data.event_type
-                if getattr(self, '_last_event_type', None) != current_type:
-                    self._selected_item.create_sockets()
+                type_changed = getattr(self, '_last_event_type', None) != current_type
+
+                # Resize BEFORE update_appearance so text placement reads the correct rect
+                if type_changed:
+                    self._selected_item.resize_for_type()
                     self._last_event_type = current_type
-                
-                # If we renamed an END node inside a subnetwork, the parent subnetwork node needs to update labels
+
+                self._selected_item.update_appearance()
+
+                # Recreate sockets after resize so socket positions are correct
+                if type_changed:
+                    self._selected_item.create_sockets()
+
+                # Refresh available character list in case type changed to/from Dialogue/Event
+                if type_changed:
+                    self.inspector.set_available_characters(self.get_all_character_names())
+
+                # If we renamed an END node inside a subnetwork, the parent needs to update labels
                 scene = self.view.scene()
                 if hasattr(scene, 'itemAddedOrRemoved'):
                     scene.itemAddedOrRemoved()
@@ -502,6 +689,11 @@ class MainWindow(QMainWindow):
         for item in self.view.scene().items():
             if isinstance(item, BaseNodeItem):
                 item.update_appearance()
+                # Resize all sockets to match new socket_size setting
+                for sock in item.inputs + item.outputs:
+                    sock.apply_size(self.settings.socket_size)
+        # Redraw background (grid visibility/spacing may have changed)
+        self.view.scene().update()
 
     def delete_selected_node(self):
         items = self.view.scene().selectedItems()
@@ -513,40 +705,52 @@ class MainWindow(QMainWindow):
             scene = self.view.scene()
             for item in items:
                 if isinstance(item, BaseNodeItem):
-                    # Local bypass logic: if node has 1 input connection and 1 output connection, bypass it
-                    # Find all unique source sockets and destination sockets connected to this node
+                    # Collect all upstream source sockets and downstream dest sockets
                     sources = []
                     dests = []
                     for sock in item.inputs:
                         for conn in sock.connections:
-                            # source is start if end is us
                             src = conn.socket_start if conn.socket_end == sock else conn.socket_end
-                            if src: sources.append(src)
+                            if src:
+                                sources.append(src)
                     for sock in item.outputs:
                         for conn in sock.connections:
                             dst = conn.socket_end if conn.socket_start == sock else conn.socket_start
-                            if dst: dests.append(dst)
-                    
+                            if dst:
+                                dests.append(dst)
+
+                    # Remove every connection attached to this node
+                    for sock in item.inputs + item.outputs:
+                        for conn in sock.connections[:]:
+                            self.view._remove_connection(conn)
+
+                    # Bypass: reconnect upstream → downstream only when both exist
                     if len(sources) == 1 and len(dests) == 1:
                         self.view.scene().create_connection(sources[0], dests[0])
-                    
+
                     self.view.scene().removeItem(item)
                 elif isinstance(item, ConnectionItem):
-                    self.view.scene().removeItem(item)
+                    self.view._remove_connection(item)
             
             # Notify for subnetwork updates
             if hasattr(scene, 'itemAddedOrRemoved'):
                 scene.itemAddedOrRemoved()
 
-    def go_back_scene(self):
+    def exit_subnet_scene(self):
         curr = self.view.scene()
         if curr.parent_scene:
             self.view.setScene(curr.parent_scene)
 
+    def enter_selected_subnet(self):
+        for item in self.view.scene().selectedItems():
+            if isinstance(item, BaseNodeItem):
+                self.view.handle_node_double_click(item)
+                break
+
     def _populate_default_scene(self, scene):
         """Add an unconnected Start node (left) and End node (right) to a blank scene."""
-        scene.add_node(100, 300, NodeData("Start", EventType.START))
-        scene.add_node(600, 300, NodeData("End", EventType.END))
+        scene.add_node(100, 300, NodeData("Start", NodeType.START))
+        scene.add_node(600, 300, NodeData("End", NodeType.END))
 
     def new_project(self):
         self.settings = ProjectSettings()
@@ -572,19 +776,20 @@ class MainWindow(QMainWindow):
              self.reconstruct_scene(new_scene, root_data)
              self.view.setScene(new_scene)
              self.scene = new_scene # Update main ref
+             self.settings_sidebar.refresh()
              QMessageBox.information(self, "Load", f"Project loaded from {path}")
 
     def reconstruct_scene(self, scene, data):
         node_map = {}
         for ndata in data["nodes"]:
             # Correct strings to Enums
-            etype = next((e for e in EventType if e.value == ndata["event_type"]), EventType.NOTE)
+            etype = next((e for e in NodeType if e.value == ndata["event_type"]), NodeType.NOTE)
             # Create object
             node = NodeData(ndata["name"], etype)
             node.id = ndata["id"]
             node.markdown_content = ndata["markdown"]
             node.stage_notes = ndata["stage_notes"]
-            node.character_names = ndata["characters"]
+            node.selected_characters = ndata.get("selected_characters", [])
             node.image_path = ndata["image_path"]
             node.show_bg_image = ndata["show_bg"]
             node.is_subnetwork = ndata["is_subnetwork"]

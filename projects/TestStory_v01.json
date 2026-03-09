@@ -1,0 +1,727 @@
+{
+    "settings": {
+        "colors": {
+            "Note": "#808080",
+            "Dialogue": "#4A90E2",
+            "Character": "#e2b57f",
+            "Event": "#28a637",
+            "Info": "#f1cc5c",
+            "Secret": "#BD10E0",
+            "Start": "#8915dc",
+            "End": "#9e78b9",
+            "Dot": "#aaaaaa",
+            "SUBNETWORK": "#417505"
+        },
+        "scale": 5.0,
+        "bg_offset_x": 0,
+        "bg_offset_y": -60,
+        "show_grid": true,
+        "grid_minor": 60,
+        "grid_major": 180,
+        "create_node_on_empty_drop": true,
+        "socket_size": 17
+    },
+    "root": {
+        "name": "Root",
+        "nodes": [
+            {
+                "id": "New Node_2805735155136",
+                "name": "Crazy Fight",
+                "event_type": "Event",
+                "pos": [
+                    1402.8359986673308,
+                    224.76006401217785
+                ],
+                "markdown": "# Tester Face McGee!\n##  Ohh yeahh!\n### Gettin that Markdown!\n#### Run it!\n\n - **Do lists work?**\n - *Huzzah! They do!*\n - Well, __how bout that__?\n\n---\n\n[Launchable Links](https://link.ext)\n\n![Frank the Fish](projects/media/fish.jpg)\n\n",
+                "stage_notes": "",
+                "selected_characters": [
+                    "Jimmy",
+                    "Frank"
+                ],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2805735152784",
+                "name": "Yay Food",
+                "event_type": "Dialogue",
+                "pos": [
+                    1126.4594654143848,
+                    622.9251107778147
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [
+                    "Jimmy",
+                    "Frank"
+                ],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "_2805735034448",
+                "name": "",
+                "event_type": "Dot",
+                "pos": [
+                    607.1147503701336,
+                    629.7944350733859
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2805735153408",
+                "name": "Yummy Food",
+                "event_type": "Event",
+                "pos": [
+                    787.7081828539,
+                    622.5514209269818
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2805735044960",
+                "name": "Secret in a tree",
+                "event_type": "Secret",
+                "pos": [
+                    783.4179475474014,
+                    414.59115919622815
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2805735034496",
+                "name": "Final Jimmy",
+                "event_type": "Dialogue",
+                "pos": [
+                    1111.4840633045699,
+                    331.06423526184733
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [
+                    "Jimmy"
+                ],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2668249802656",
+                "name": "Jimmy",
+                "event_type": "Character",
+                "pos": [
+                    1085.5994258340197,
+                    -153.62930643482832
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": "projects/media/crow.jpg",
+                "show_bg": true,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2668249802512",
+                "name": "Frank",
+                "event_type": "Character",
+                "pos": [
+                    1458.4227807272619,
+                    -150.41469691265473
+                ],
+                "markdown": "# Tester Face McGee!\n##  Ohh yeahh!\n### Gettin that Markdown!\n#### Run it!\n\n - **Do lists work?**\n - *Huzzah! They do!*\n - Well, __how bout that__?\n\n---\n\n[Launchable Links](https://link.ext)\n\n![Frank the Fish](projects/media/fish.jpg)\n\n",
+                "stage_notes": "Lives in a swamp",
+                "selected_characters": [],
+                "image_path": "projects/media/fish.jpg",
+                "show_bg": true,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2668249802320",
+                "name": "Swampy Marsh",
+                "event_type": "Info",
+                "pos": [
+                    -119.81528868845223,
+                    -73.53252366021397
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2668249802128",
+                "name": "Some boat to explore",
+                "event_type": "Event",
+                "pos": [
+                    212.29874835167362,
+                    -65.05615800187701
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "_2668249720784",
+                "name": "",
+                "event_type": "Dot",
+                "pos": [
+                    76.57602735010771,
+                    119.02268236750989
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "_2668249723184",
+                "name": "",
+                "event_type": "Dot",
+                "pos": [
+                    -217.89835187738927,
+                    129.9977968742899
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "_2668249724048",
+                "name": "",
+                "event_type": "Dot",
+                "pos": [
+                    604.1260615392429,
+                    356.7665048107218
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "_2668249801264",
+                "name": "",
+                "event_type": "Dot",
+                "pos": [
+                    586.0,
+                    139.0
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "_2668249724336",
+                "name": "",
+                "event_type": "Dot",
+                "pos": [
+                    809.0,
+                    204.0
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2668249724144",
+                "name": "Final Frank",
+                "event_type": "Dialogue",
+                "pos": [
+                    1110.6704273232517,
+                    103.82473308039204
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [
+                    "Frank"
+                ],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2668249723856",
+                "name": "New Node",
+                "event_type": "Event",
+                "pos": [
+                    769.0000000000001,
+                    32.67042732325223
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2668249718192",
+                "name": "Messy Branching",
+                "event_type": "Info",
+                "pos": [
+                    303.0480973949097,
+                    247.5198829266604
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": true,
+                "subnetwork": {
+                    "name": "Messy Branching",
+                    "nodes": [
+                        {
+                            "id": "New Node_2805735152736",
+                            "name": "Frank Swims",
+                            "event_type": "End",
+                            "pos": [
+                                1015.8346630117017,
+                                622.8263855917753
+                            ],
+                            "markdown": "",
+                            "stage_notes": "",
+                            "selected_characters": [],
+                            "image_path": null,
+                            "show_bg": false,
+                            "is_subnetwork": false,
+                            "subnetwork": null
+                        },
+                        {
+                            "id": "New Node_2805735152832",
+                            "name": "New Node",
+                            "event_type": "Note",
+                            "pos": [
+                                498.2611084734202,
+                                601.5826949204279
+                            ],
+                            "markdown": "",
+                            "stage_notes": "",
+                            "selected_characters": [],
+                            "image_path": null,
+                            "show_bg": false,
+                            "is_subnetwork": false,
+                            "subnetwork": null
+                        },
+                        {
+                            "id": "New Node_2805735151200",
+                            "name": "Jimmy Flies",
+                            "event_type": "End",
+                            "pos": [
+                                1020.6627745279168,
+                                302.1002875206008
+                            ],
+                            "markdown": "",
+                            "stage_notes": "",
+                            "selected_characters": [],
+                            "image_path": null,
+                            "show_bg": false,
+                            "is_subnetwork": false,
+                            "subnetwork": null
+                        },
+                        {
+                            "id": "New Node_2805735151296",
+                            "name": "New Node",
+                            "event_type": "Note",
+                            "pos": [
+                                473.15492858910056,
+                                309.964759341023
+                            ],
+                            "markdown": "",
+                            "stage_notes": "",
+                            "selected_characters": [],
+                            "image_path": null,
+                            "show_bg": false,
+                            "is_subnetwork": false,
+                            "subnetwork": null
+                        },
+                        {
+                            "id": "New Node_2668249723376",
+                            "name": "New Node",
+                            "event_type": "Note",
+                            "pos": [
+                                406.21540656268803,
+                                45.90687025409568
+                            ],
+                            "markdown": "",
+                            "stage_notes": "",
+                            "selected_characters": [],
+                            "image_path": null,
+                            "show_bg": false,
+                            "is_subnetwork": false,
+                            "subnetwork": null
+                        },
+                        {
+                            "id": "End_2668249800448",
+                            "name": "They Eat",
+                            "event_type": "End",
+                            "pos": [
+                                1003.6301227556003,
+                                -13.827248553995243
+                            ],
+                            "markdown": "",
+                            "stage_notes": "",
+                            "selected_characters": [],
+                            "image_path": null,
+                            "show_bg": false,
+                            "is_subnetwork": false,
+                            "subnetwork": null
+                        },
+                        {
+                            "id": "Start_2668249800592",
+                            "name": "Start",
+                            "event_type": "Start",
+                            "pos": [
+                                59.0,
+                                282.0
+                            ],
+                            "markdown": "",
+                            "stage_notes": "",
+                            "selected_characters": [],
+                            "image_path": null,
+                            "show_bg": false,
+                            "is_subnetwork": false,
+                            "subnetwork": null
+                        }
+                    ],
+                    "connections": [
+                        {
+                            "start_id": "New Node_2805735152832",
+                            "start_idx": 0,
+                            "end_id": "New Node_2805735152736",
+                            "end_idx": 0,
+                            "line_style": 1,
+                            "line_color": "#646464"
+                        },
+                        {
+                            "start_id": "Start_2668249800592",
+                            "start_idx": 0,
+                            "end_id": "New Node_2805735152832",
+                            "end_idx": 0,
+                            "line_style": 1,
+                            "line_color": "#646464"
+                        },
+                        {
+                            "start_id": "New Node_2805735151296",
+                            "start_idx": 0,
+                            "end_id": "New Node_2805735151200",
+                            "end_idx": 0,
+                            "line_style": 1,
+                            "line_color": "#646464"
+                        },
+                        {
+                            "start_id": "Start_2668249800592",
+                            "start_idx": 0,
+                            "end_id": "New Node_2805735151296",
+                            "end_idx": 0,
+                            "line_style": 1,
+                            "line_color": "#646464"
+                        },
+                        {
+                            "start_id": "New Node_2668249723376",
+                            "start_idx": 0,
+                            "end_id": "End_2668249800448",
+                            "end_idx": 0,
+                            "line_style": 1,
+                            "line_color": "#646464"
+                        },
+                        {
+                            "start_id": "Start_2668249800592",
+                            "start_idx": 0,
+                            "end_id": "New Node_2668249723376",
+                            "end_idx": 0,
+                            "line_style": 1,
+                            "line_color": "#646464"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "End_2668249361104",
+                "name": "End",
+                "event_type": "End",
+                "pos": [
+                    1712.8803840638125,
+                    333.3370166592496
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "Start_2668249294128",
+                "name": "Start",
+                "event_type": "Start",
+                "pos": [
+                    -485.2363975752785,
+                    112.94079736602527
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2155144398160",
+                "name": "Berry Bush!",
+                "event_type": "Secret",
+                "pos": [
+                    -93.00741852018822,
+                    268.6090147950166
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            }
+        ],
+        "connections": [
+            {
+                "start_id": "New Node_2668249718192",
+                "start_idx": 0,
+                "end_id": "_2668249801264",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2805735044960",
+                "start_idx": 0,
+                "end_id": "New Node_2805735034496",
+                "end_idx": 0,
+                "line_style": 4,
+                "line_color": "#7e1375"
+            },
+            {
+                "start_id": "New Node_2668249724144",
+                "start_idx": 0,
+                "end_id": "New Node_2805735155136",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2805735155136",
+                "start_idx": 0,
+                "end_id": "End_2668249361104",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2805735034496",
+                "start_idx": 0,
+                "end_id": "New Node_2805735155136",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2805735152784",
+                "start_idx": 0,
+                "end_id": "End_2668249361104",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2805735153408",
+                "start_idx": 0,
+                "end_id": "New Node_2805735152784",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2805735034448",
+                "start_idx": 0,
+                "end_id": "New Node_2805735153408",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2668249718192",
+                "start_idx": 2,
+                "end_id": "_2805735034448",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2668249718192",
+                "start_idx": 1,
+                "end_id": "_2668249724048",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249724048",
+                "start_idx": 0,
+                "end_id": "New Node_2805735044960",
+                "end_idx": 0,
+                "line_style": 4,
+                "line_color": "#7e1375"
+            },
+            {
+                "start_id": "_2668249724048",
+                "start_idx": 0,
+                "end_id": "New Node_2805735034496",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249723184",
+                "start_idx": 0,
+                "end_id": "New Node_2668249802320",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249720784",
+                "start_idx": 0,
+                "end_id": "New Node_2668249802128",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249720784",
+                "start_idx": 0,
+                "end_id": "New Node_2668249718192",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249723184",
+                "start_idx": 0,
+                "end_id": "_2668249720784",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "Start_2668249294128",
+                "start_idx": 0,
+                "end_id": "_2668249723184",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249801264",
+                "start_idx": 0,
+                "end_id": "New Node_2668249723856",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2668249723856",
+                "start_idx": 0,
+                "end_id": "New Node_2668249724144",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249723184",
+                "start_idx": 0,
+                "end_id": "New Node_2155144398160",
+                "end_idx": 0,
+                "line_style": 4,
+                "line_color": "#7e1375"
+            },
+            {
+                "start_id": "New Node_2155144398160",
+                "start_idx": 0,
+                "end_id": "New Node_2668249718192",
+                "end_idx": 0,
+                "line_style": 4,
+                "line_color": "#7e1375"
+            },
+            {
+                "start_id": "_2668249801264",
+                "start_idx": 0,
+                "end_id": "_2668249724336",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_2668249724336",
+                "start_idx": 0,
+                "end_id": "New Node_2668249724144",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            }
+        ]
+    }
+}

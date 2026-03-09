@@ -6,6 +6,24 @@ from PyQt6.QtGui import QPen, QBrush, QColor, QRadialGradient, QPixmap, QPainter
 
 NODE_BAR_H = 20  # Title bar height for the SUBNETWORK mini-window shape
 
+# Fraction of the 0–3 RGB magnitude above which node text flips to black.
+# 0.66 → flip when R/255 + G/255 + B/255 ≥ 1.98  (i.e.  ~66 % brightness).
+_TEXT_CONTRAST_THRESHOLD = 0.63
+
+
+def _text_color_for_bg(color_str: str) -> QColor:
+    """Return white or black text color based on the background hex color.
+
+    Magnitude = R_norm + G_norm + B_norm  (range 0–3, where each channel is /255).
+    If magnitude >= _TEXT_CONTRAST_THRESHOLD * 3 the background is bright enough
+    to warrant black text; otherwise white text is used.
+    """
+    c = QColor(color_str)
+    magnitude = c.redF() + c.greenF() + c.blueF()
+    if magnitude >= _TEXT_CONTRAST_THRESHOLD * 3:
+        return QColor(Qt.GlobalColor.black)
+    return QColor(Qt.GlobalColor.white)
+
 class ConnectionItem(QGraphicsLineItem):
     def __init__(self, start_socket, end_socket=None):
         super().__init__()
@@ -54,7 +72,11 @@ class ConnectionItem(QGraphicsLineItem):
 
 class SocketItem(QGraphicsRectItem):
     def __init__(self, parent_node, is_input=True):
-        super().__init__(-7, -7, 14, 14, parent_node)
+        size = 14  # default
+        if parent_node and hasattr(parent_node, 'project_settings') and parent_node.project_settings:
+            size = parent_node.project_settings.socket_size
+        half = size // 2
+        super().__init__(-half, -half, size, size, parent_node)
         self.node_item = parent_node
         self.is_input = is_input
         self.setBrush(QBrush(QColor(150, 150, 150)))
@@ -63,20 +85,16 @@ class SocketItem(QGraphicsRectItem):
         self.connections = []
         self.label_item = None
 
+    def apply_size(self, size):
+        half = size // 2
+        self.setRect(-half, -half, size, size)
+
     def scenePos(self):
         return self.mapToScene(self.rect().center())
 
 class BaseNodeItem(QGraphicsRectItem):
     def __init__(self, node_data, x=0, y=0, project_settings=None):
-        from models import EventType
-        _et = node_data.event_type
-        if _et in (EventType.START, EventType.END):
-            _w, _h = 100, 64
-        elif _et == EventType.DIALOGUE:
-            _w, _h = 150, 50
-        else:
-            _w, _h = 150, 80
-        super().__init__(0, 0, _w, _h)
+        super().__init__(0, 0, 1, 1)  # placeholder; resize_for_type sets real size
         self.setPos(x, y)
         self.node_data = node_data
         self.project_settings = project_settings
@@ -92,11 +110,19 @@ class BaseNodeItem(QGraphicsRectItem):
         self.outputs = []
         
         # Sockets created here
+        self.resize_for_type()
         self.create_sockets()
         
         # Ensure the node itself is high enough so it doesn't get buried
         self.setZValue(1)
         self.update_appearance()
+
+    def resize_for_type(self):
+        """Resize the rect to the canonical size for the current NodeType."""
+        from models import NODE_SIZES, NodeType
+        et = self.node_data.event_type
+        w, h = NODE_SIZES.get(et, (150, 80))
+        self.setRect(0, 0, w, h)
 
     def update_appearance(self):
         # Color based on type or subnetwork status
@@ -114,33 +140,58 @@ class BaseNodeItem(QGraphicsRectItem):
             
         self.setBrush(QBrush(base_color))
         self.setPen(QPen(Qt.GlobalColor.white))
+        # Cache text color so child label methods can reuse it without recomputing.
+        self._node_text_color = _text_color_for_bg(color_str)
+        self.title_text.setDefaultTextColor(self._node_text_color)
         self.title_text.setPlainText(self.node_data.name)
 
         # Position title text based on node shape
-        from models import EventType as _ET
-        from PyQt6.QtGui import QTextOption
+        from models import NodeType as _ET
+        from PyQt6.QtGui import QTextOption, QFont
         _r = self.rect()
         self.title_text.setTextWidth(_r.width() - 10)
-        _th = self.title_text.boundingRect().height()
-        if self.node_data.is_subnetwork:
+
+        # Reset font to default before applying per-type overrides
+        _base_font = QFont()
+        self.title_text.setFont(_base_font)
+
+        if self.node_data.event_type == _ET.CHARACTER:
+            _char_font = QFont()
+            _char_font.setPointSize(_base_font.pointSize() + 3)
+            _char_font.setBold(True)
+            self.title_text.setFont(_char_font)
+            _th = self.title_text.boundingRect().height()
+            self.title_text.setPos(5, (_r.height() - _th) / 2)
+            self.title_text.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignCenter))
+        elif self.node_data.is_subnetwork:
+            _th = self.title_text.boundingRect().height()
             self.title_text.setPos(5, (NODE_BAR_H - _th) / 2)
             self.title_text.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignLeft))
         elif self.node_data.event_type in (_ET.START, _ET.END):
+            _th = self.title_text.boundingRect().height()
             self.title_text.setPos(5, (_r.height() - _th) / 2)
             self.title_text.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignCenter))
         else:
+            _th = self.title_text.boundingRect().height()
             self.title_text.setPos(5, 5)
             self.title_text.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignLeft))
 
-        # Background image handle
+        # DOT nodes are too small to show text
+        self.title_text.setVisible(self.node_data.event_type != _ET.DOT)
+
+        # --- Character labels for DIALOGUE/EVENT nodes ---
+        self._update_character_labels()
+
+        # --- Scene actions text for NOTE/INFO nodes ---
+        self._update_actions_text()
+
+        # Background image handle — scene-level item at Z=0 so it renders
+        # behind all nodes (Z=1) without any extra iteration.
         if self.node_data.image_path and self.node_data.show_bg_image:
             if not self.bg_image_item:
-                self.bg_image_item = QGraphicsPixmapItem(self)
-                # Set VERY low ZValue to be behind EVERYTHING 
-                self.bg_image_item.setZValue(-100)
-                # Ensure it doesn't inherit parent flag transformations in a weird way
-                self.bg_image_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent, True)
-            
+                self.bg_image_item = QGraphicsPixmapItem()
+                self.bg_image_item.setZValue(0)
+
             pixmap = QPixmap(self.node_data.image_path)
             if not pixmap.isNull():
                 scale = self.project_settings.bg_image_scale if self.project_settings else 5.0
@@ -148,43 +199,153 @@ class BaseNodeItem(QGraphicsRectItem):
                 target_h = self.rect().height() * scale
                 pixmap = pixmap.scaled(int(target_w), int(target_h), Qt.AspectRatioMode.KeepAspectRatio)
                 self.bg_image_item.setPixmap(pixmap)
-                # Centering
-                img_rect = self.bg_image_item.boundingRect()
-                self.bg_image_item.setPos(self.rect().width()/2 - img_rect.width()/2, 
-                                          self.rect().height()/2 - img_rect.height()/2)
+
+            if self.scene() and not self.bg_image_item.scene():
+                self.scene().addItem(self.bg_image_item)
+            self._update_bg_image_pos()
         elif self.bg_image_item:
-            self.bg_image_item.setParentItem(None)
-            if self.scene():
-                self.scene().removeItem(self.bg_image_item)
+            if self.bg_image_item.scene():
+                self.bg_image_item.scene().removeItem(self.bg_image_item)
             self.bg_image_item = None
+
+    def _update_actions_text(self):
+        from models import NodeType as _ET
+        if not hasattr(self, '_actions_text_item'):
+            self._actions_text_item = None
+
+        et = self.node_data.event_type
+        if et not in (_ET.NOTE, _ET.INFO, _ET.EVENT):
+            if self._actions_text_item and self._actions_text_item.scene():
+                self._actions_text_item.scene().removeItem(self._actions_text_item)
+                self._actions_text_item = None
+            return
+
+        text = self.node_data.scene_actions.strip()
+        if not text:
+            if self._actions_text_item and self._actions_text_item.scene():
+                self._actions_text_item.scene().removeItem(self._actions_text_item)
+                self._actions_text_item = None
+            return
+
+        if not self._actions_text_item:
+            self._actions_text_item = QGraphicsTextItem(self)
+            self._actions_text_item.setZValue(10)
+            font = self._actions_text_item.font()
+            font.setPointSize(max(6, font.pointSize() - 1))
+            self._actions_text_item.setFont(font)
+        self._actions_text_item.setDefaultTextColor(
+            getattr(self, '_node_text_color', QColor(Qt.GlobalColor.white))
+        )
+
+        PADDING = 4
+        title_bottom = self.title_text.pos().y() + self.title_text.boundingRect().height()
+        y = title_bottom + PADDING
+        w = self.rect().width() - 10
+
+        self._actions_text_item.setTextWidth(w)
+        self._actions_text_item.setPlainText(text)
+        self._actions_text_item.setPos(5, y)
+
+        # Resize node to fit the wrapped text
+        needed_h = y + self._actions_text_item.boundingRect().height() + PADDING
+        current_rect = self.rect()
+        if needed_h > current_rect.height():
+            self.setRect(0, 0, current_rect.width(), needed_h)
+            if self.inputs:
+                self.inputs[0].setPos(0, self.rect().height() / 2)
+            if self.outputs and not self.node_data.is_subnetwork:
+                self.outputs[0].setPos(self.rect().width(), self.rect().height() / 2)
+
+    def _update_character_labels(self):
+        from models import NodeType as _ET
+        # Remove previous character label items
+        if not hasattr(self, '_char_label_items'):
+            self._char_label_items = []
+        for lbl in self._char_label_items:
+            if lbl.scene():
+                lbl.scene().removeItem(lbl)
+        self._char_label_items = []
+
+        et = self.node_data.event_type
+        if et not in (_ET.DIALOGUE, _ET.EVENT):
+            return
+
+        chars = self.node_data.selected_characters
+        if not chars:
+            return
+
+        LINE_H = 16   # px per character row
+        PADDING = 4   # gap below title text
+        title_bottom = self.title_text.pos().y() + self.title_text.boundingRect().height()
+        y = title_bottom + PADDING
+
+        # Resize node height to fit all labels if needed
+        needed_h = y + len(chars) * LINE_H + PADDING
+        current_rect = self.rect()
+        if needed_h > current_rect.height():
+            self.setRect(0, 0, current_rect.width(), needed_h)
+            # Reposition input socket to stay centred
+            if self.inputs:
+                self.inputs[0].setPos(0, self.rect().height() / 2)
+            if self.outputs and not self.node_data.is_subnetwork:
+                self.outputs[0].setPos(self.rect().width(), self.rect().height() / 2)
+
+        for name in chars:
+            lbl = QGraphicsTextItem(f"  · {name}", self)
+            lbl.setDefaultTextColor(
+                getattr(self, '_node_text_color', QColor(Qt.GlobalColor.white))
+            )
+            lbl.setZValue(10)
+            # Scale font slightly smaller than title
+            font = lbl.font()
+            font.setPointSize(max(6, font.pointSize() - 1))
+            lbl.setFont(font)
+            lbl.setPos(5, y)
+            y += LINE_H
+            self._char_label_items.append(lbl)
+
+    def _update_bg_image_pos(self):
+        """Reposition bg_image_item in scene coords: centred on this node plus the global offset."""
+        if not self.bg_image_item:
+            return
+        img_rect = self.bg_image_item.boundingRect()
+        r = self.rect()
+        ox = self.project_settings.bg_image_offset_x if self.project_settings else 0
+        oy = self.project_settings.bg_image_offset_y if self.project_settings else 0
+        self.bg_image_item.setPos(
+            self.pos().x() + r.width() / 2 - img_rect.width() / 2 + ox,
+            self.pos().y() + r.height() / 2 - img_rect.height() / 2 + oy,
+        )
 
     def boundingRect(self):
         return self.rect().adjusted(-2, -2, 2, 2)
 
     def shape(self):
-        from models import EventType
+        from models import NodeType
         r = self.rect()
         w, h = r.width(), r.height()
         path = QPainterPath()
         et = self.node_data.event_type
-        if et == EventType.START:
+        if et == NodeType.START:
             # Backwards D: flat right wall, arc sweeps CW through left side
             path.moveTo(w, 0)
             path.lineTo(w, h)
             path.arcTo(QRectF(0, 0, 2 * w, h), 270, -180)
             path.closeSubpath()
-        elif et == EventType.END:
+        elif et == NodeType.END:
             # D shape: flat left wall, arc sweeps CCW through right side
             path.moveTo(0, 0)
             path.lineTo(0, h)
             path.arcTo(QRectF(-w, 0, 2 * w, h), 270, 180)
             path.closeSubpath()
+        elif et == NodeType.DOT:
+            path.addRoundedRect(r, 10, 10)
         else:
             path.addRect(r)
         return path
 
     def paint(self, painter, option, widget=None):
-        from models import EventType
+        from models import NodeType
         r = self.rect()
         w, h = r.width(), r.height()
         et = self.node_data.event_type
@@ -192,13 +353,15 @@ class BaseNodeItem(QGraphicsRectItem):
         outline = QPen(QColor(255, 200, 50), 3) if self.isSelected() else QPen(Qt.GlobalColor.white, 1)
         painter.setPen(outline)
         painter.setBrush(fill)
-        if et == EventType.START:
+        if et == NodeType.START:
             self._paint_backwards_d(painter, w, h)
-        elif et == EventType.END:
+        elif et == NodeType.END:
             self._paint_d(painter, w, h)
+        elif et == NodeType.DOT:
+            painter.drawRoundedRect(QRectF(0, 0, w, h), 10, 10)
         elif self.node_data.is_subnetwork:
             self._paint_mini_window(painter, w, h, fill, outline)
-        elif et == EventType.DIALOGUE:
+        elif et == NodeType.DIALOGUE:
             painter.drawRoundedRect(QRectF(0, 0, w, h), int(h*.25), int(h*.25))
         else:
             painter.drawRect(QRectF(0, 0, w, h))
@@ -237,7 +400,7 @@ class BaseNodeItem(QGraphicsRectItem):
         painter.drawRect(QRectF(0, 0, w, h))
 
     def create_sockets(self):
-        from models import EventType
+        from models import NodeType
         if not self.scene():
             return
             
@@ -272,7 +435,7 @@ class BaseNodeItem(QGraphicsRectItem):
         self.outputs = []
 
         # Start nodes have no Inputs
-        if self.node_data.event_type != EventType.START:
+        if self.node_data.event_type != NodeType.START:
             in_sock = SocketItem(self, True)
             in_sock.setPos(0, self.rect().height() / 2)
             self.inputs.append(in_sock)
@@ -286,7 +449,7 @@ class BaseNodeItem(QGraphicsRectItem):
                         pass
         
         # End nodes have no Outputs
-        if self.node_data.event_type != EventType.END:
+        if self.node_data.event_type != NodeType.END:
             # Subnetworks have dynamic outputs based on End nodes in their scene
             if self.node_data.is_subnetwork and self.node_data.subnetwork_id:
                 end_nodes = []
@@ -296,7 +459,7 @@ class BaseNodeItem(QGraphicsRectItem):
                     # always append to the bottom of the output list.
                     for item in reversed(list(self.node_data.subnetwork_id.items())):
                         # Direct check to avoid recursion/import issues
-                        if type(item).__name__ == "BaseNodeItem" and item.node_data.event_type == EventType.END:
+                        if type(item).__name__ == "BaseNodeItem" and item.node_data.event_type == NodeType.END:
                             end_nodes.append(item.node_data.name)
                 except (RuntimeError, AttributeError):
                     pass
@@ -326,7 +489,9 @@ class BaseNodeItem(QGraphicsRectItem):
 
                     # Add label for socket
                     lbl = QGraphicsTextItem(name, self)
-                    lbl.setDefaultTextColor(Qt.GlobalColor.white)
+                    lbl.setDefaultTextColor(
+                        getattr(self, '_node_text_color', QColor(Qt.GlobalColor.white))
+                    )
                     lbl.setZValue(10)
                     lbl.setPos(self.rect().width() - lbl.boundingRect().width() - 10, y_pos - 10)
                     out_sock.label_item = lbl # Store to remove later
@@ -356,6 +521,19 @@ class BaseNodeItem(QGraphicsRectItem):
             for sock in self.inputs + self.outputs:
                 for conn in sock.connections:
                     conn.updatePath()
+            self._update_bg_image_pos()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSceneHasChanged:
+            new_scene = self.scene()
+            if new_scene:
+                # Node just entered a scene — register any pending bg_image_item
+                if self.bg_image_item and not self.bg_image_item.scene():
+                    new_scene.addItem(self.bg_image_item)
+                    self._update_bg_image_pos()
+            else:
+                # Node left the scene — clean up the detached bg_image_item
+                if self.bg_image_item and self.bg_image_item.scene():
+                    self.bg_image_item.scene().removeItem(self.bg_image_item)
+                self.bg_image_item = None
         return super().itemChange(change, value)
 
     def mouseDoubleClickEvent(self, event):

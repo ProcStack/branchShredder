@@ -1,10 +1,12 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
+import re
+from PyQt6.QtWidgets import (QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QComboBox, QTextEdit, 
                              QPushButton, QListWidget, QFileDialog, QColorDialog,
-                             QDoubleSpinBox)
+                             QDoubleSpinBox, QSpinBox, QCheckBox, QScrollArea,
+                             QTextBrowser)
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor
-from models import EventType
+from models import NodeType
 
 class SettingsSidebar(QWidget):
     settingsChanged = pyqtSignal()
@@ -12,12 +14,28 @@ class SettingsSidebar(QWidget):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.layout = QVBoxLayout(self)
-        
+
+        # Outer layout contains only the scroll area
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setMinimumHeight(0)
+        self.setMinimumHeight(0)
+
+        content_widget = QWidget()
+        content_widget.setMinimumWidth(278)  # fit cleanly inside 300px sidebar
+        self.layout = QVBoxLayout(content_widget)
+        scroll.setWidget(content_widget)
+        outer_layout.addWidget(scroll)
+
         self.layout.addWidget(QLabel("PROJECT SETTINGS"))
         
         # Color pickers for each node type
-        for event_type_val in EventType.list():
+        for event_type_val in NodeType.list():
             row = QHBoxLayout()
             label = QLabel(f"{event_type_val}:")
             btn = QPushButton()
@@ -45,12 +63,120 @@ class SettingsSidebar(QWidget):
         self.scale_spin.setValue(self.settings.bg_image_scale)
         self.scale_spin.valueChanged.connect(self.update_scale)
         self.layout.addWidget(self.scale_spin)
-        
+
+        # BG Image Offset
+        row_x = QHBoxLayout()
+        row_x.addWidget(QLabel("BG Image Offset X:"))
+        self.offset_x_spin = QSpinBox()
+        self.offset_x_spin.setRange(-1000, 1000)
+        self.offset_x_spin.setValue(int(self.settings.bg_image_offset_x))
+        self.offset_x_spin.valueChanged.connect(self.update_offset)
+        row_x.addWidget(self.offset_x_spin)
+        self.layout.addLayout(row_x)
+
+        row_y = QHBoxLayout()
+        row_y.addWidget(QLabel("BG Image Offset Y:"))
+        self.offset_y_spin = QSpinBox()
+        self.offset_y_spin.setRange(-1000, 1000)
+        self.offset_y_spin.setValue(int(self.settings.bg_image_offset_y))
+        self.offset_y_spin.valueChanged.connect(self.update_offset)
+        row_y.addWidget(self.offset_y_spin)
+        self.layout.addLayout(row_y)
+
+        # Grid settings
+        self.layout.addWidget(QLabel("GRID"))
+
+        self.grid_toggle = QCheckBox("Show Grid")
+        self.grid_toggle.setChecked(self.settings.show_grid)
+        self.grid_toggle.stateChanged.connect(self.update_grid)
+        self.layout.addWidget(self.grid_toggle)
+
+        row_minor = QHBoxLayout()
+        row_minor.addWidget(QLabel("Grid Minor Spacing:"))
+        self.grid_minor_spin = QSpinBox()
+        self.grid_minor_spin.setRange(10, 500)
+        self.grid_minor_spin.setValue(self.settings.grid_minor)
+        self.grid_minor_spin.valueChanged.connect(self.update_grid)
+        row_minor.addWidget(self.grid_minor_spin)
+        self.layout.addLayout(row_minor)
+
+        row_major = QHBoxLayout()
+        row_major.addWidget(QLabel("Grid Major Spacing:"))
+        self.grid_major_spin = QSpinBox()
+        self.grid_major_spin.setRange(10, 2000)
+        self.grid_major_spin.setValue(self.settings.grid_major)
+        self.grid_major_spin.valueChanged.connect(self.update_grid)
+        row_major.addWidget(self.grid_major_spin)
+        self.layout.addLayout(row_major)
+
+        # Connection drop behaviour
+        self.layout.addWidget(QLabel("CONNECTIONS"))
+        self.drop_toggle = QCheckBox("New Node If No Curve Destination")
+        self.drop_toggle.setChecked(self.settings.create_node_on_empty_drop)
+        self.drop_toggle.stateChanged.connect(self.update_drop_setting)
+        self.layout.addWidget(self.drop_toggle)
+
+        row_sock = QHBoxLayout()
+        row_sock.addWidget(QLabel("Socket Size:"))
+        self.socket_size_spin = QSpinBox()
+        self.socket_size_spin.setRange(6, 40)
+        self.socket_size_spin.setValue(self.settings.socket_size)
+        self.socket_size_spin.valueChanged.connect(self.update_socket_size)
+        row_sock.addWidget(self.socket_size_spin)
+        self.layout.addLayout(row_sock)
+
         self.layout.addStretch()
 
     def update_scale(self, val):
         self.settings.bg_image_scale = val
         self.settingsChanged.emit()
+
+    def update_offset(self):
+        self.settings.bg_image_offset_x = self.offset_x_spin.value()
+        self.settings.bg_image_offset_y = self.offset_y_spin.value()
+        self.settingsChanged.emit()
+
+    def update_grid(self):
+        self.settings.show_grid = self.grid_toggle.isChecked()
+        self.settings.grid_minor = self.grid_minor_spin.value()
+        self.settings.grid_major = self.grid_major_spin.value()
+        self.settingsChanged.emit()
+
+    def update_drop_setting(self):
+        self.settings.create_node_on_empty_drop = self.drop_toggle.isChecked()
+
+    def update_socket_size(self, val):
+        self.settings.socket_size = val
+        self.settingsChanged.emit()
+
+    def refresh(self):
+        """Reload all control values from the settings object (e.g. after project load)."""
+        for event_type_val in self.settings.node_colors:
+            pass  # color buttons are dynamically created; no easy reference — skip for now
+        self.scale_spin.blockSignals(True)
+        self.scale_spin.setValue(self.settings.bg_image_scale)
+        self.scale_spin.blockSignals(False)
+        self.offset_x_spin.blockSignals(True)
+        self.offset_x_spin.setValue(int(self.settings.bg_image_offset_x))
+        self.offset_x_spin.blockSignals(False)
+        self.offset_y_spin.blockSignals(True)
+        self.offset_y_spin.setValue(int(self.settings.bg_image_offset_y))
+        self.offset_y_spin.blockSignals(False)
+        self.grid_toggle.blockSignals(True)
+        self.grid_toggle.setChecked(self.settings.show_grid)
+        self.grid_toggle.blockSignals(False)
+        self.grid_minor_spin.blockSignals(True)
+        self.grid_minor_spin.setValue(self.settings.grid_minor)
+        self.grid_minor_spin.blockSignals(False)
+        self.grid_major_spin.blockSignals(True)
+        self.grid_major_spin.setValue(self.settings.grid_major)
+        self.grid_major_spin.blockSignals(False)
+        self.drop_toggle.blockSignals(True)
+        self.drop_toggle.setChecked(self.settings.create_node_on_empty_drop)
+        self.drop_toggle.blockSignals(False)
+        self.socket_size_spin.blockSignals(True)
+        self.socket_size_spin.setValue(self.settings.socket_size)
+        self.socket_size_spin.blockSignals(False)
 
 class StoryWritingBar(QWidget):
     contentChanged = pyqtSignal()
@@ -64,8 +190,17 @@ class StoryWritingBar(QWidget):
         editor_widget = QWidget()
         editor_layout = QVBoxLayout(editor_widget)
         
+
         # Markdown toolbar
         toolbar_layout = QHBoxLayout()
+
+        # Editor title
+        editorText = QLabel("Content Editor; Markdown")
+
+        spacerHeader = QWidget()
+        spacerHeader.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        # Quick buttons for common markdown
         self.btn_bold = QPushButton("B")
         self.btn_bold.setFixedWidth(30)
         self.btn_bold.clicked.connect(lambda: self.insert_markdown("**", "**"))
@@ -82,32 +217,42 @@ class StoryWritingBar(QWidget):
         spacerA.setFixedWidth(20)
 
         self.btn_h1 = QPushButton("H1")
-        self.btn_h1.setFixedWidth(30)
+        self.btn_h1.setFixedWidth(35)
         self.btn_h1.clicked.connect(lambda: self.insert_markdown("# ", ""))
 
         self.btn_h2 = QPushButton("H2")
-        self.btn_h2.setFixedWidth(30)
+        self.btn_h2.setFixedWidth(35)
         self.btn_h2.clicked.connect(lambda: self.insert_markdown("## ", ""))
 
         self.btn_h3 = QPushButton("H3")
-        self.btn_h3.setFixedWidth(30)
+        self.btn_h3.setFixedWidth(35)
         self.btn_h3.clicked.connect(lambda: self.insert_markdown("### ", ""))
 
         self.btn_h4 = QPushButton("H4")
-        self.btn_h4.setFixedWidth(30)
+        self.btn_h4.setFixedWidth(35)
         self.btn_h4.clicked.connect(lambda: self.insert_markdown("#### ", ""))
 
         spacerB = QWidget()
         spacerB.setFixedWidth(20)
         
         self.btn_link = QPushButton("URL")
-        self.btn_link.setFixedWidth(50)
+        self.btn_link.setFixedWidth(45)
         self.btn_link.clicked.connect(lambda: self.insert_markdown("[Name](", ")"))
 
         self.btn_media = QPushButton("Media")
-        self.btn_media.setFixedWidth(50)
+        self.btn_media.setFixedWidth(58)
         self.btn_media.clicked.connect(lambda: self.insert_markdown("![Alt](", ")"))
+
+        spacerC = QWidget()
+        spacerC.setFixedWidth(40)
+
+        self.btn_preview = QPushButton("Toggle Preview")
+        self.btn_preview.setFixedWidth(125)
+        self.btn_preview.setCheckable(True)
+        self.btn_preview.clicked.connect(self._toggle_preview)
         
+        toolbar_layout.addWidget(editorText)
+        toolbar_layout.addWidget(spacerHeader)
         toolbar_layout.addWidget(self.btn_bold)
         toolbar_layout.addWidget(self.btn_italic)
         toolbar_layout.addWidget(self.btn_underline)
@@ -119,13 +264,21 @@ class StoryWritingBar(QWidget):
         toolbar_layout.addWidget(spacerB)
         toolbar_layout.addWidget(self.btn_link)
         toolbar_layout.addWidget(self.btn_media)
+        toolbar_layout.addWidget(spacerC)
+        toolbar_layout.addWidget(self.btn_preview)
         toolbar_layout.addStretch()
         
         self.text_editor = QTextEdit()
         self.text_editor.textChanged.connect(self.update_node_content)
+        self.text_editor.textChanged.connect(self._on_text_changed)
         
         editor_layout.addLayout(toolbar_layout)
         editor_layout.addWidget(self.text_editor)
+
+        # Centre: Markdown preview (hidden by default)
+        self.preview_browser = QTextBrowser()
+        self.preview_browser.setOpenExternalLinks(True)
+        self.preview_browser.hide()
         
         # Right side: Characters and Stage Notes
         right_sidebar = QWidget()
@@ -142,7 +295,107 @@ class StoryWritingBar(QWidget):
         right_layout.addWidget(self.stage_notes)
         
         self.layout.addWidget(editor_widget, 4)
+        self.layout.addWidget(self.preview_browser, 4)
         self.layout.addWidget(right_sidebar, 1)
+
+    # ------------------------------------------------------------------
+    # Preview
+    # ------------------------------------------------------------------
+    def _toggle_preview(self, checked):
+        self.preview_browser.setVisible(checked)
+        if checked:
+            self._update_preview()
+
+    def _on_text_changed(self):
+        if self.preview_browser.isVisible():
+            self._update_preview()
+
+    def _update_preview(self):
+        html = self._markdown_to_html(self.text_editor.toPlainText())
+        # Wrap in basic stylesheet for readability
+        styled = (
+            "<html><body style='font-family:sans-serif; font-size:10pt; "
+            "background:#1e1e1e; color:#dddddd; padding:6px;'>" + html + "</body></html>"
+        )
+        scroll = self.preview_browser.verticalScrollBar().value()
+        self.preview_browser.setHtml(styled)
+        self.preview_browser.verticalScrollBar().setValue(scroll)
+
+    def _inline_md(self, text):
+        """Apply inline markdown and pass through allowed HTML tags."""
+        # Normalise <br> variants
+        text = re.sub(r'<br\s*/?>', '<br/>', text, flags=re.IGNORECASE)
+        # Images  ![alt](src)
+        text = re.sub(
+            r'!\[([^\]]*)\]\(([^)]*)\)',
+            r'<img alt="\1" src="\2" style="max-width:100%"/>',
+            text
+        )
+        # Links  [label](url)
+        text = re.sub(r'\[([^\]]+)\]\(([^)]*)\)', r'<a href="\2">\1</a>', text)
+        # Bold  **text**
+        text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+        # Underline  __text__
+        text = re.sub(r'__(.+?)__', r'<u>\1</u>', text)
+        # Italic  *text*  (not part of **)
+        text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
+        return text
+
+    def _markdown_to_html(self, text):
+        """Convert a subset of Markdown + basic HTML tags to HTML."""
+        lines = text.split('\n')
+        out = []
+        in_ul = False
+
+        for line in lines:
+            # Horizontal rule: 3+ identical chars (-, *, _) optionally separated by spaces
+            if re.match(r'^\s*([-*_])\s*(?:\1\s*){2,}\s*$', line):
+                if in_ul:
+                    out.append('</ul>'); in_ul = False
+                out.append('<hr/>')
+                continue
+
+            # Headers H1–H4 (longest prefix first is handled by {1,4} greedy match)
+            m = re.match(r'^(#{1,4})\s+(.*)', line)
+            if m:
+                if in_ul:
+                    out.append('</ul>'); in_ul = False
+                lvl = len(m.group(1))
+                out.append(f'<h{lvl}>{self._inline_md(m.group(2))}</h{lvl}>')
+                continue
+
+            # Bullet list item (-, *, + followed by whitespace)
+            m = re.match(r'^\s*[-*+]\s+(.*)', line)
+            if m:
+                if not in_ul:
+                    out.append('<ul>'); in_ul = True
+                out.append(f'<li>{self._inline_md(m.group(1))}</li>')
+                continue
+
+            # Any non-list line closes an open list
+            if in_ul:
+                out.append('</ul>'); in_ul = False
+
+            # Empty line — blank spacer
+            if not line.strip():
+                out.append('<p style="margin:0">&nbsp;</p>')
+                continue
+
+            # Pass-through lines that are already HTML block tags
+            stripped = line.strip()
+            if re.match(r'^</?p[^>]*>', stripped, re.IGNORECASE):
+                out.append(self._inline_md(line))
+                continue
+
+            # Normal paragraph line
+            out.append(f'<p style="margin:2px 0">{self._inline_md(line)}</p>')
+
+        if in_ul:
+            out.append('</ul>')
+
+        return '\n'.join(out)
+
+    # ------------------------------------------------------------------
 
     def set_node(self, node_data, all_character_names):
         self.node = node_data
@@ -160,6 +413,8 @@ class StoryWritingBar(QWidget):
         self.stage_notes.setPlainText(node_data.stage_notes)
         self.text_editor.blockSignals(False)
         self.stage_notes.blockSignals(False)
+        if self.preview_browser.isVisible():
+            self._update_preview()
         
         self.char_list.clear()
         self.char_list.addItems(sorted(list(set(all_character_names))))
@@ -183,26 +438,31 @@ class NodeInspector(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.node = None
-        
-        self.layout = QVBoxLayout(self)
-        
+
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        self.setMinimumHeight(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setMinimumHeight(0)
+
+        content_widget = QWidget()
+        self.layout = QVBoxLayout(content_widget)
+        scroll.setWidget(content_widget)
+        outer_layout.addWidget(scroll)
+
         self.name_label = QLabel("Node Name:")
         self.name_edit = QLineEdit()
         self.name_edit.textChanged.connect(self.update_node_name)
         self.layout.addWidget(self.name_label)
         self.layout.addWidget(self.name_edit)
 
-        # Character Names (for Input Nodes)
-        self.char_input_label = QLabel("Character Names (comma separated):")
-        self.char_input_edit = QTextEdit()
-        self.char_input_edit.setFixedHeight(60)
-        self.char_input_edit.textChanged.connect(self.update_node_characters)
-        self.layout.addWidget(self.char_input_label)
-        self.layout.addWidget(self.char_input_edit)
-        
-        self.type_label = QLabel("Event Type:")
+        self.type_label = QLabel("Node Type:")
         self.type_combo = QComboBox()
-        self.type_combo.addItems(EventType.list())
+        self.type_combo.addItems(NodeType.list())
         self.type_combo.currentTextChanged.connect(self.update_node_type)
         self.layout.addWidget(self.type_label)
         self.layout.addWidget(self.type_combo)
@@ -212,12 +472,21 @@ class NodeInspector(QWidget):
         self.zone_edit.textChanged.connect(self.update_node_zone)
         self.layout.addWidget(self.zone_label)
         self.layout.addWidget(self.zone_edit)
-        
+
+        # --- Game Scene Actions (hidden for Dialogue/Event) ---
         self.actions_label = QLabel("Game Scene Actions:")
         self.actions_edit = QTextEdit()
         self.actions_edit.textChanged.connect(self.update_node_actions)
         self.layout.addWidget(self.actions_label)
         self.layout.addWidget(self.actions_edit)
+
+        # --- Character multiselect (shown only for Dialogue/Event) ---
+        self.char_select_label = QLabel("Characters in Scene:")
+        self.char_select_list = QListWidget()
+        self.char_select_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+        self.char_select_list.itemSelectionChanged.connect(self.update_selected_characters)
+        self.layout.addWidget(self.char_select_label)
+        self.layout.addWidget(self.char_select_list)
         
         self.media_label = QLabel("Media Assets:")
         self.media_list = QListWidget()
@@ -246,34 +515,50 @@ class NodeInspector(QWidget):
             return
         
         self.setEnabled(True)
-        # Block signals to avoid recursive updates while setting initial values
         self.name_edit.blockSignals(True)
         self.type_combo.blockSignals(True)
-        self.char_input_edit.blockSignals(True)
+        self.char_select_list.blockSignals(True)
         
         self.name_edit.setText(node_data.name)
-        
-        # Hide/Show Character input
-        is_start = node_data.event_type == EventType.START
-        self.char_input_label.setVisible(is_start)
-        self.char_input_edit.setVisible(is_start)
-        self.char_input_edit.setPlainText(", ".join(node_data.character_names))
 
         self.type_combo.setCurrentText(node_data.event_type.value)
         self.zone_edit.setText(node_data.location_zone)
+
+        uses_char_list = node_data.event_type in (NodeType.DIALOGUE, NodeType.EVENT)
+        uses_actions = node_data.event_type != NodeType.DIALOGUE
+        self.actions_label.setVisible(uses_actions)
+        self.actions_edit.setVisible(uses_actions)
+        self.char_select_label.setVisible(uses_char_list)
+        self.char_select_list.setVisible(uses_char_list)
+        self._refresh_actions_label(node_data.event_type)
+
         self.actions_edit.setPlainText(node_data.scene_actions)
         self.media_list.clear()
         self.media_list.addItems(node_data.media_paths)
 
         self.name_edit.blockSignals(False)
         self.type_combo.blockSignals(False)
-        self.char_input_edit.blockSignals(False)
+        self.char_select_list.blockSignals(False)
 
-    def update_node_characters(self):
-        if self.node:
-            content = self.char_input_edit.toPlainText()
-            self.node.character_names = [c.strip() for c in content.split(",") if c.strip()]
-            self.nodeChanged.emit()
+    def _refresh_actions_label(self, event_type):
+        label_map = {
+            NodeType.CHARACTER: "Bio / Stats:",
+            NodeType.NOTE: "Note:",
+            NodeType.INFO: "Info:",
+        }
+        self.actions_label.setText(label_map.get(event_type, "Game Scene Actions:"))
+
+    def set_available_characters(self, all_names):
+        """Populate the character multiselect list with all known character names."""
+        self.char_select_list.blockSignals(True)
+        self.char_select_list.clear()
+        selected = self.node.selected_characters if self.node else []
+        for name in sorted(all_names):
+            item = self.char_select_list.addItem(name)
+            list_item = self.char_select_list.item(self.char_select_list.count() - 1)
+            if name in selected:
+                list_item.setSelected(True)
+        self.char_select_list.blockSignals(False)
 
     def update_node_name(self, text):
         if self.node:
@@ -282,10 +567,14 @@ class NodeInspector(QWidget):
 
     def update_node_type(self, text):
         if self.node:
-            self.node.event_type = EventType(text)
-            is_start = self.node.event_type == EventType.START
-            self.char_input_label.setVisible(is_start)
-            self.char_input_edit.setVisible(is_start)
+            self.node.event_type = NodeType(text)
+            uses_char_list = self.node.event_type in (NodeType.DIALOGUE, NodeType.EVENT)
+            uses_actions = self.node.event_type != NodeType.DIALOGUE
+            self.actions_label.setVisible(uses_actions)
+            self.actions_edit.setVisible(uses_actions)
+            self.char_select_label.setVisible(uses_char_list)
+            self.char_select_list.setVisible(uses_char_list)
+            self._refresh_actions_label(self.node.event_type)
             self.nodeChanged.emit()
 
     def update_node_zone(self, text):
@@ -296,9 +585,14 @@ class NodeInspector(QWidget):
         if self.node:
             self.node.scene_actions = self.actions_edit.toPlainText()
 
+    def update_selected_characters(self):
+        if self.node:
+            self.node.selected_characters = [item.text() for item in self.char_select_list.selectedItems()]
+            self.nodeChanged.emit()
+
     def add_media(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Open Media Assets")
-        if files:
+        if files and self.node.media_paths is not None:
             self.node.media_paths.extend(files)
             self.media_list.addItems(files)
 
@@ -306,7 +600,8 @@ class NodeInspector(QWidget):
         current_row = self.media_list.currentRow()
         if current_row >= 0:
             item = self.media_list.takeItem(current_row)
-            self.node.media_paths.remove(item.text())
+            if self.node.media_paths is not None:
+                self.node.media_paths.remove(item.text())
 
     def set_background_image(self):
         if self.media_list.currentItem():

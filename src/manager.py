@@ -1,7 +1,7 @@
 import json
 import os
 import shutil
-from models import NodeData, EventType, ProjectSettings
+from models import NodeData, NodeType, ProjectSettings
 
 class ProjectManager:
     def __init__(self, root_path=None):
@@ -21,7 +21,7 @@ class ProjectManager:
             "pos": [node_item.pos().x(), node_item.pos().y()],
             "markdown": data.markdown_content,
             "stage_notes": data.stage_notes,
-            "characters": data.character_names,
+            "selected_characters": data.selected_characters,
             "image_path": data.image_path,
             "show_bg": data.show_bg_image,
             "is_subnetwork": data.is_subnetwork,
@@ -43,10 +43,18 @@ class ProjectManager:
             if isinstance(item, BaseNodeItem):
                 nodes.append(self.serialize_node(item))
             elif isinstance(item, ConnectionItem) and item.socket_end:
-                start_node = item.socket_start.parentItem()
-                end_node = item.socket_end.parentItem()
-                start_idx = item.socket_start.node_item.outputs.index(item.socket_start)
-                end_idx = item.socket_end.node_item.inputs.index(item.socket_end)
+                # Normalize: start_sock must be output, end_sock must be input
+                start_sock = item.socket_start
+                end_sock = item.socket_end
+                if start_sock.is_input:
+                    start_sock, end_sock = end_sock, start_sock
+                start_node = start_sock.parentItem()
+                end_node = end_sock.parentItem()
+                try:
+                    start_idx = start_sock.node_item.outputs.index(start_sock)
+                    end_idx = end_sock.node_item.inputs.index(end_sock)
+                except ValueError:
+                    continue  # Skip malformed connections
                 connections.append({
                     "start_id": start_node.node_data.id,
                     "start_idx": start_idx,
@@ -66,7 +74,14 @@ class ProjectManager:
         data = {
             "settings": {
                 "colors": settings.node_colors,
-                "scale": settings.bg_image_scale
+                "scale": settings.bg_image_scale,
+                "bg_offset_x": settings.bg_image_offset_x,
+                "bg_offset_y": settings.bg_image_offset_y,
+                "show_grid": settings.show_grid,
+                "grid_minor": settings.grid_minor,
+                "grid_major": settings.grid_major,
+                "create_node_on_empty_drop": settings.create_node_on_empty_drop,
+                "socket_size": settings.socket_size
             },
             "root": self.serialize_scene(root_scene)
         }
@@ -79,6 +94,13 @@ class ProjectManager:
         
         settings.node_colors = data["settings"].get("colors", settings.node_colors)
         settings.bg_image_scale = data["settings"].get("scale", settings.bg_image_scale)
+        settings.bg_image_offset_x = data["settings"].get("bg_offset_x", 0)
+        settings.bg_image_offset_y = data["settings"].get("bg_offset_y", 0)
+        settings.show_grid = data["settings"].get("show_grid", True)
+        settings.grid_minor = data["settings"].get("grid_minor", 60)
+        settings.grid_major = data["settings"].get("grid_major", 180)
+        settings.create_node_on_empty_drop = data["settings"].get("create_node_on_empty_drop", True)
+        settings.socket_size = data["settings"].get("socket_size", 14)
         
         return data["root"]
 
