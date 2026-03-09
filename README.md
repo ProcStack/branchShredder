@@ -14,11 +14,12 @@ Have any key art you want to help distinguish different characters or story arc 
 ![Branch Shredder v0.1 UI](_show/branchShredder_v01.webp)
 
 ### Functionality -
- - Pan / Move Nodes -- Left Click + Drag
- - Zoom -- Right Click + Drag
+ - Move Nodes -- Left Click + Drag Node
+ - Pan Scene -- Left Click + Drag Empty Area
+ - Zoom Scene -- Right Click + Drag
  - Create Node -- Left Click -or- Drag line out from a Socket & Release
  - Select Node / Connection Line -- Left Click
- - Delete Node/Connection -- Delete Key
+ - Delete Selected Node/Connection -- Delete Key
 <br/><br/>
  - Reconnect Nodes -- Click+Drag on Connected Socket
  - Disconnect all connections on selected node -- Press `Y`
