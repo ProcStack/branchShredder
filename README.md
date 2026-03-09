@@ -19,14 +19,18 @@ Have any key art you want to help distinguish different characters or story arc 
  - Create Node -- Left Click -or- Drag line out from a Socket & Release
  - Select Node / Connection Line -- Left Click
  - Delete Node/Connection -- Delete Key
-<br/>
+
+
  - Reconnect Nodes -- Click+Drag on Connected Socket
  - Disconnect all connections on selected node -- Press `Y`
-<br/>
+
+
  - Insert Dot on Connection -- Double Click on Connection Line
  - Insert Node on Connection -- Drag+Drop Node onto Connection Line
-<br/>
+
+
  - Create / Enter Subnetwork -- Double Click on Node -or- Click 'Create/Enter Subnet' -or- Press `I` with selected Subnetwork
  - Exit Subnetwork -- Click 'Exit Subnet' -or- Press `U`
-<br/>
+
+
 <br/>
