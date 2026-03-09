@@ -523,19 +523,25 @@ class MainWindow(QMainWindow):
 
         # -- -- --
 
-        shortcut_menu = menubar.addMenu("&Shortcuts")
+        shortcut_menu = menubar.addMenu("&Help...")
         shortcuts = {
-            "Select Node / Connection Line": "Left Click",
-            "Pan / Move Nodes": "Left Click + Drag",
-            "Zoom": "Right Click + Drag",
-            "Delete Node/Connection": "Del",
-            "Reconnect (drag from socket)": "Click+Drag on Socket",
-            "Insert Dot on Connection": "Double Click on Connection Line",
-            "Insert Node on Connection": "Drag+Drop Node onto Connection Line",
-            "Enter Subnetwork": "Double Click on Node or Click 'Create/Enter Subnet'",
-            "Create / Enter Subnetwork": "Double Click on Node or Press 'I'",
-            "Exit Subnetwork": "Press 'U'"
+            "Move Nodes" : "Left Click + Drag Node",
+            "Pan Scene" : "Left Click + Drag Empty Area",
+            "Zoom Scene" : "Right Click + Drag",
+            "Create Node" : "Left Click -or- Drag line out from a Socket & Release",
+            "Select Node / Connection Line" : "Left Click",
+            "Delete Selected Node/Connection" : "Delete Key",
+            "Reconnect" : "Click+Drag on Connected Socket",
+            "Disconnect all connections on selected node" : "Press `Y`",
+            "Insert Dot on Connection" : "Double Click on Connection Line",
+            "Insert Node on Connection" : "Drag+Drop Node onto Connection Line",
+            "Create / Enter Subnetwork" : "Double Click on Node -or- Click 'Create/Enter Subnet' -or- Press 'I'",
+            "Exit Subnetwork" : "Click 'Exit Subnet' -or- Press 'U'"
         }
+
+        
+
+
         for action, shortcut in shortcuts.items():
             act = QAction(f"{action} -- {shortcut}", self)
             act.setEnabled(False)
