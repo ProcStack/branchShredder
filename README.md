@@ -1,6 +1,7 @@
 # Branch Shredder v0.1
 ### Visualize branching narratives with ease
 #### Built by Kevin Edzenga; gh - ProcStack
+<br/> 
 
 ### Features -
 Build out a node graph of your dialogue choices, taking different actions in your story, and connect your nodes to easly know what story elements connect to what other story elements.
@@ -9,7 +10,7 @@ With a built in text editor with Markdown Language suppport, easly add Links & I
 
 Have any key art you want to help distinguish different characters or story arc events?
 <br/>Add the images from your computer and you can then select an image to display around the node as a "background image"
-
+<br/><br/>
 
 ![Branch Shredder v0.1 UI](_show/branchShredder_v01.webp)
 
