@@ -40,12 +40,12 @@ Have any key art you want to help distinguish different characters or story arc 
 
 **Python 3.10+** is required.
 
-Install all core dependencies (PyQt6 + optional cloud AI providers):
+REQUIRED - Install all core dependencies (PyQt6 + optional cloud AI providers):
 ```
 pip install -r requirements.txt
 ```
 
-Install local-to-computer LLM dependencies (Llama only):
+OPTIONAL - Install local-to-computer LLM dependencies only (To use Llama):
 ```
 pip install -r requirements_localLLM.txt
 ```
