@@ -1,4 +1,4 @@
-# Branch Shredder v0.1
+# Branch Shredder v0.2
 ### Visualize branching narratives with ease
 #### Built by Kevin Edzenga; gh - ProcStack
 <br/> 
