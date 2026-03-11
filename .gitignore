@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# AI Models
+models/*.gguf
+
 # C extensions
 *.so
 

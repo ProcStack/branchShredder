@@ -1,8 +1,7 @@
-from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsItem, 
-                             QGraphicsRectItem, QGraphicsLineItem, QGraphicsPixmapItem,
-                             QGraphicsTextItem)
-from PyQt6.QtCore import Qt, QPointF, QLineF, QRectF
-from PyQt6.QtGui import QPen, QBrush, QColor, QRadialGradient, QPixmap, QPainterPath, QPainterPathStroker
+from PyQt6.QtWidgets import (QGraphicsItem, QGraphicsRectItem, QGraphicsLineItem,
+                             QGraphicsPixmapItem, QGraphicsTextItem)
+from PyQt6.QtCore import Qt, QLineF, QRectF
+from PyQt6.QtGui import QPen, QBrush, QColor, QPixmap, QPainterPath, QPainterPathStroker
 
 NODE_BAR_H = 20  # Title bar height for the SUBNETWORK mini-window shape
 
@@ -23,6 +22,31 @@ def _text_color_for_bg(color_str: str) -> QColor:
     if magnitude >= _TEXT_CONTRAST_THRESHOLD * 3:
         return QColor(Qt.GlobalColor.black)
     return QColor(Qt.GlobalColor.white)
+
+def _traverse_upstream(node_item, visited=None):
+    """
+    Recursively collect all paths from any root to node_item.
+    Returns a list of paths; each path is an ordered list of BaseNodeItem
+    from the topmost ancestor down to node_item.
+    """
+    if visited is None:
+        visited = frozenset()
+    if node_item in visited:
+        return [[node_item]]  # cycle guard
+    visited = visited | {node_item}
+    upstream = []
+    for sock in (node_item.inputs or []):
+        for conn in sock.connections:
+            if conn.socket_start and conn.socket_start.node_item:
+                upstream.append(conn.socket_start.node_item)
+    if not upstream:
+        return [[node_item]]
+    result = []
+    for up in upstream:
+        for path in _traverse_upstream(up, visited):
+            result.append(path + [node_item])
+    return result
+
 
 class ConnectionItem(QGraphicsLineItem):
     def __init__(self, start_socket, end_socket=None):
@@ -163,6 +187,10 @@ class BaseNodeItem(QGraphicsRectItem):
             _th = self.title_text.boundingRect().height()
             self.title_text.setPos(5, (_r.height() - _th) / 2)
             self.title_text.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignCenter))
+        elif self.node_data.event_type == _ET.GLOBALS:
+            _th = self.title_text.boundingRect().height()
+            self.title_text.setPos(5, (NODE_BAR_H - _th) / 2)
+            self.title_text.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignLeft))
         elif self.node_data.is_subnetwork:
             _th = self.title_text.boundingRect().height()
             self.title_text.setPos(5, (NODE_BAR_H - _th) / 2)
@@ -185,7 +213,10 @@ class BaseNodeItem(QGraphicsRectItem):
         # --- Scene actions text for NOTE/INFO nodes ---
         self._update_actions_text()
 
-        # Background image handle — scene-level item at Z=0 so it renders
+        # --- GLOBALS variable labels ---
+        self._update_globals_labels()
+
+        # Background image handle - scene-level item at Z=0 so it renders
         # behind all nodes (Z=1) without any extra iteration.
         if self.node_data.image_path and self.node_data.show_bg_image:
             if not self.bg_image_item:
@@ -363,6 +394,8 @@ class BaseNodeItem(QGraphicsRectItem):
             self._paint_mini_window(painter, w, h, fill, outline)
         elif et == NodeType.DIALOGUE:
             painter.drawRoundedRect(QRectF(0, 0, w, h), int(h*.25), int(h*.25))
+        elif et == NodeType.GLOBALS:
+            self._paint_globals(painter, w, h, fill, outline)
         else:
             painter.drawRect(QRectF(0, 0, w, h))
 
@@ -398,6 +431,101 @@ class BaseNodeItem(QGraphicsRectItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawLine(QLineF(0, NODE_BAR_H, w, NODE_BAR_H))
         painter.drawRect(QRectF(0, 0, w, h))
+
+    def _paint_globals(self, painter, w, h, fill, outline):
+        """GLOBALS: rectangle body with a distinct title bar."""
+        painter.drawRect(QRectF(0, 0, w, h))
+        bar_color = QColor(60, 60, 140)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(bar_color))
+        painter.drawRect(QRectF(0, 0, w, NODE_BAR_H))
+        painter.setPen(outline)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawLine(QLineF(0, NODE_BAR_H, w, NODE_BAR_H))
+        painter.drawRect(QRectF(0, 0, w, h))
+
+    def _update_globals_labels(self):
+        from models import NodeType as _ET, NODE_SIZES
+        if not hasattr(self, '_globals_label_items'):
+            self._globals_label_items = []
+        for lbl in self._globals_label_items:
+            if lbl.scene():
+                lbl.scene().removeItem(lbl)
+        self._globals_label_items = []
+        if self.node_data.event_type != _ET.GLOBALS:
+            return
+        PADDING = 4
+        LINE_H = 15
+        y = NODE_BAR_H + PADDING
+        for var_name, default_val in self.node_data.globals_vars.items():
+            val_str = int(default_val) if isinstance(default_val, float) and default_val == int(default_val) else default_val
+            lbl = QGraphicsTextItem(f"  {var_name} = {val_str}", self)
+            lbl.setDefaultTextColor(getattr(self, '_node_text_color', QColor(Qt.GlobalColor.white)))
+            lbl.setZValue(10)
+            font = lbl.font()
+            font.setPointSize(max(6, font.pointSize() - 1))
+            lbl.setFont(font)
+            lbl.setPos(5, y)
+            y += LINE_H
+            self._globals_label_items.append(lbl)
+        base_h = NODE_SIZES.get(_ET.GLOBALS, (220, 100))[1]
+        needed_h = max(base_h, y + PADDING)
+        current_rect = self.rect()
+        if needed_h != current_rect.height():
+            self.setRect(0, 0, current_rect.width(), needed_h)
+            if self.inputs:
+                self.inputs[0].setPos(0, needed_h / 2)
+            if self.outputs and not self.node_data.is_subnetwork:
+                self.outputs[0].setPos(self.rect().width(), needed_h / 2)
+
+    def get_subnet_meta(self):
+        """Return runtime metadata dict about this node's subnetwork."""
+        if not (self.node_data.is_subnetwork and self.node_data.subnetwork_id):
+            return None
+        sub = self.node_data.subnetwork_id
+        end_count = 0
+        characters = set()
+        try:
+            for item in sub.items():
+                if type(item).__name__ == 'BaseNodeItem':
+                    from models import NodeType as _ET
+                    if item.node_data.event_type == _ET.END:
+                        end_count += 1
+                    characters.update(getattr(item.node_data, 'selected_characters', []))
+        except RuntimeError:
+            pass
+        return {'end_count': end_count, 'characters': sorted(characters)}
+
+    def compute_paths(self):
+        """Return a list of path strings from the graph root down to this node.
+        DOT nodes are skipped so they don't clutter the path display."""
+        return [' > '.join(n.node_data.name for n in path
+                           if n.node_data.event_type.value != "Dot")
+                for path in _traverse_upstream(self)]
+
+    def compute_variable_values(self, var_name, default_value=0.0):
+        """
+        Traverse upstream and compute all possible values of var_name at this node.
+        Returns a deduplicated list of floats (one per unique upstream branch).
+        """
+        seen = []
+        for path in _traverse_upstream(self):
+            val = default_value
+            for n in path:
+                nd = n.node_data
+                if nd.variable_name == var_name:
+                    op, delta = nd.variable_op, nd.variable_delta
+                    if op == 'Set':
+                        val = delta
+                    elif op == 'Add':
+                        val += delta
+                    elif op == 'Subtract':
+                        val -= delta
+                    elif op == 'Multiply':
+                        val *= delta
+            if val not in seen:
+                seen.append(val)
+        return seen if seen else [default_value]
 
     def create_sockets(self):
         from models import NodeType
@@ -525,12 +653,12 @@ class BaseNodeItem(QGraphicsRectItem):
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneHasChanged:
             new_scene = self.scene()
             if new_scene:
-                # Node just entered a scene — register any pending bg_image_item
+                # Node just entered a scene - register any pending bg_image_item
                 if self.bg_image_item and not self.bg_image_item.scene():
                     new_scene.addItem(self.bg_image_item)
                     self._update_bg_image_pos()
             else:
-                # Node left the scene — clean up the detached bg_image_item
+                # Node left the scene - clean up the detached bg_image_item
                 if self.bg_image_item and self.bg_image_item.scene():
                     self.bg_image_item.scene().removeItem(self.bg_image_item)
                 self.bg_image_item = None

@@ -1,7 +1,5 @@
 import json
 import os
-import shutil
-from models import NodeData, NodeType, ProjectSettings
 
 class ProjectManager:
     def __init__(self, root_path=None):
@@ -11,6 +9,8 @@ class ProjectManager:
             os.makedirs(self.media_path, exist_ok=True)
         else:
             self.media_path = None
+
+        self.current_project_path = None
         
     def serialize_node(self, node_item):
         data = node_item.node_data
@@ -22,6 +22,10 @@ class ProjectManager:
             "markdown": data.markdown_content,
             "stage_notes": data.stage_notes,
             "selected_characters": data.selected_characters,
+            "globals_vars": data.globals_vars,
+            "variable_name": data.variable_name,
+            "variable_op": data.variable_op,
+            "variable_delta": data.variable_delta,
             "image_path": data.image_path,
             "show_bg": data.show_bg_image,
             "is_subnetwork": data.is_subnetwork,
@@ -70,7 +74,7 @@ class ProjectManager:
             "connections": connections
         }
 
-    def save_project(self, path, root_scene, settings):
+    def parse_project_json_data(self, root_scene, settings):
         data = {
             "settings": {
                 "colors": settings.node_colors,
@@ -81,18 +85,31 @@ class ProjectManager:
                 "grid_minor": settings.grid_minor,
                 "grid_major": settings.grid_major,
                 "create_node_on_empty_drop": settings.create_node_on_empty_drop,
-                "socket_size": settings.socket_size
+                "socket_size": settings.socket_size,
+                "show_ai_bar": settings.show_ai_bar,
+                "project_system_prompt": settings.project_system_prompt
             },
             "root": self.serialize_scene(root_scene)
         }
+        return data
+
+    def save_project_as(self, path, root_scene, settings):
+        data = self.parse_project_json_data(root_scene, settings)
         with open(path, 'w') as f:
             json.dump(data, f, indent=4)
+        self.current_project_path = path
+
+    def save_project(self, root_scene, settings):
+        if self.current_project_path:
+            self.save_project_as(self.current_project_path, root_scene, settings)
+        else:
+            raise ValueError("No current project path. Use save_project_as to specify a path.")
 
     def load_project(self, path, settings):
         with open(path, 'r') as f:
             data = json.load(f)
         
-        settings.node_colors = data["settings"].get("colors", settings.node_colors)
+        settings.node_colors.update(data["settings"].get("colors", {}))
         settings.bg_image_scale = data["settings"].get("scale", settings.bg_image_scale)
         settings.bg_image_offset_x = data["settings"].get("bg_offset_x", 0)
         settings.bg_image_offset_y = data["settings"].get("bg_offset_y", 0)
@@ -101,7 +118,9 @@ class ProjectManager:
         settings.grid_major = data["settings"].get("grid_major", 180)
         settings.create_node_on_empty_drop = data["settings"].get("create_node_on_empty_drop", True)
         settings.socket_size = data["settings"].get("socket_size", 14)
+        settings.show_ai_bar = data["settings"].get("show_ai_bar", False)
+        settings.project_system_prompt = data["settings"].get("project_system_prompt", "")
         
+        self.current_project_path = path  
         return data["root"]
 
-    # ... keeping other helper methods like organize_media if needed ...

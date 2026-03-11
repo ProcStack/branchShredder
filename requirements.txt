@@ -1,0 +1,21 @@
+# branchShredder - core dependencies
+# Install with:  pip install -r requirements.txt
+
+PyQt6>=6.7.1
+
+# ---------------------------------------------------------------------------
+# Cloud AI providers (all optional - only needed if you have an API key)
+# Each package is small; install all of them or just the ones you'll use.
+# ---------------------------------------------------------------------------
+
+# OpenAI  (GPT-4o, GPT-4 Turbo, GPT-3.5 Turbo)
+openai>=1.0.0
+
+# Anthropic  (Claude 3.5 Sonnet/Haiku, Claude 3 Opus)
+anthropic>=0.25.0
+
+# Groq  (hosted Llama 3, Mixtral, Gemma 2 - free tier available)
+groq>=0.5.0
+
+# Google Gemini  (Gemini 2.0 Flash, 1.5 Pro/Flash)
+google-generativeai>=0.8.0

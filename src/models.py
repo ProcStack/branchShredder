@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum
 
 class NodeType(Enum):
     NOTE = "Note"
@@ -10,12 +10,13 @@ class NodeType(Enum):
     START = "Start"
     END = "End"
     DOT = "Dot"
+    GLOBALS = "Globals"
 
     @classmethod
     def list(cls):
         return [c.value for c in cls]
 
-# Default (width, height) per NodeType — single source of truth used by graph_items
+# Default (width, height) per NodeType - single source of truth used by graph_items
 NODE_SIZES = {
     NodeType.START:    (100, 64),
     NodeType.END:      (100, 64),
@@ -26,6 +27,7 @@ NODE_SIZES = {
     NodeType.EVENT:    (150, 80),
     NodeType.INFO:     (150, 80),
     NodeType.SECRET:   (150, 80),
+    NodeType.GLOBALS:  (220, 100),
 }
 
 class NodeData:
@@ -47,6 +49,10 @@ class NodeData:
         self.markdown_content = ""
         self.stage_notes = ""
         self.selected_characters = [] # Characters active in this DIALOGUE/EVENT node
+        self.globals_vars = {}         # {name: default_value} - only for GLOBALS nodes
+        self.variable_name = ""        # which variable this node affects
+        self.variable_op = "Add"       # Set / Add / Subtract / Multiply
+        self.variable_delta = 0.0      # the value to apply
 
 class ProjectSettings:
     def __init__(self):
@@ -60,6 +66,7 @@ class ProjectSettings:
             NodeType.START.value: "#8915dc",    # Violet
             NodeType.END.value: "#9e78b9",       # Lavender
             NodeType.DOT.value: "#aaaaaa",       # Light Gray
+            NodeType.GLOBALS.value: "#1a1a2e",   # Dark Navy
             "SUBNETWORK": "#417505"              # Dark Green
         }
         self.bg_image_scale = 5.0 # 500%
@@ -70,3 +77,5 @@ class ProjectSettings:
         self.grid_major = 180
         self.create_node_on_empty_drop = True
         self.socket_size = 14
+        self.show_ai_bar = False
+        self.project_system_prompt = ""

@@ -10,6 +10,7 @@
             "Start": "#8915dc",
             "End": "#9e78b9",
             "Dot": "#aaaaaa",
+            "Globals": "#1a1a2e",
             "SUBNETWORK": "#417505"
         },
         "scale": 5.0,
@@ -17,20 +18,102 @@
         "bg_offset_y": -60,
         "show_grid": true,
         "grid_minor": 60,
-        "grid_major": 180,
+        "grid_major": 179,
         "create_node_on_empty_drop": true,
-        "socket_size": 17
+        "socket_size": 17,
+        "show_ai_bar": true,
+        "project_system_prompt": ""
     },
     "root": {
         "name": "Root",
         "nodes": [
             {
+                "id": "_1772007143024",
+                "name": "",
+                "event_type": "Dot",
+                "pos": [
+                    363.80581050099056,
+                    -369.69998619638204
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "The Cabin_1772006897072",
+                "name": "The Cabin",
+                "event_type": "Event",
+                "pos": [
+                    511.4958022811355,
+                    -94.69083256207098
+                ],
+                "markdown": "## The Cabin\n\nThe cabin door hangs crooked on one hinge, swollen wood jammed against a warped frame. Frank puts his shoulder into it and it gives with a wet, reluctant crack \u2014 the sound of something that's been sealed for years finally surrendering.\n\nThe smell hits him first. Not rot, not exactly. Something older than rot. The ghost of tobacco smoke baked into wood. Mildew. River water that soaked into everything and then slowly, over years, evaporated \u2014 leaving behind a mineral tang, like licking a stone.\n\nIt's small. Barely eight feet across. A cot against the far wall, its mattress reduced to a sagging canvas skin over rusted springs. A potbelly stove in the corner, cold as a headstone, its chimney pipe punched through the ceiling at an angle that was never up to code. A shelf above the cot holds a tin cup, a fork with a bent tine, and a Bible \u2014 King James, clothbound, its spine split. Frank opens it. Someone has underlined passages in Genesis with a heavy hand. Chapter 4, verse 9, is circled three times:\n\n***\"And the LORD said unto Cain, Where is Abel thy brother? And he said, I know not: Am I my brother's keeper?\"***\n\nFrank sets the Bible down carefully.\n\nThere's a table built into the wall beneath a porthole so fogged it barely lets in light. On it:\n\n- **More journal pages**, loose this time, not bound. The same cramped handwriting, but worse \u2014 the letters lurching sideways like a drunk trying to walk a straight line. These entries are different from the logs in the second chest. They're *confessional*. Fragments, mostly. ***\"Didn't mean for it to go that way\"*** appears twice. ***\"The river will keep it\"*** appears three times. And then, near the bottom of the last page, written with what looks like a different pen \u2014 steadier, more deliberate, as if the author sobered up or simply ran out of ways to lie to himself:\n\n  ***\"Jimmy never saw it coming. That's the only mercy I can claim.\"***\n\n- **Scratches on the wall** beside the cot. Not carved \u2014 *gouged*, with something sharp, deep enough to splinter the wood. Tally marks. Frank counts them. Forty-seven. Forty-seven days? Forty-seven nights spent on this boat after whatever happened, happened? Or forty-seven something elses \u2014 drinks, regrets, times this person almost turned themselves in and didn't?\n\n- **A tin box** nailed shut beneath the table. Frank pries it open with his pocketknife. Inside: **a bundle of cash**, old bills, bound with a rubber band that disintegrates at his touch. He doesn't count it. He doesn't need to. It's not a fortune, but it's more than a riverman would carry. Payment. Or a share of something.\n\n- **Scratched into the table surface itself**, in letters large enough to read from the doorway, as if it were meant to be the first thing anyone saw when they entered:\n\n  ***\"GOD FORGIVES. THE RIVER DON'T.\"***\n\nFrank stands in the middle of the cabin and lets the silence settle around him. The boat is a coffin with ambition. Whoever lived here did so as penance \u2014 or as hiding. Maybe both. Maybe, by the end, the distinction didn't matter.\n\nHe thinks about the journal entries. The curated chest. The photograph of two men and a fish and a summer afternoon. The straight razor with its dark hinge.\n\nHe thinks about the word *upstream*, circled twice in the first chest. The map with its heavy X. *The drop.*\n\nHe thinks about the Bible verse. *Am I my brother's keeper?*\n\nJimmy's killer didn't run. That's the thing that settles into Frank's gut like a swallowed stone. Jimmy's killer sat right here, on this cot, in this cabin, on this boat stuck in the mud of a dying river \u2014 and *stayed*.\n\nFrank ducks back through the crooked doorway into the open air. The sky is pale and indifferent above him.\n\nHe's got a key with a strange symbol. A map with an X. A name he can't quite read on a pocket watch. And a dead man's confession written on loose pages in a room that smells like ghosts.\n\nUpstream. Whatever's left of the truth, it's upstream.",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "The Third Chest_1772006893664",
+                "name": "The Third Chest",
+                "event_type": "Event",
+                "pos": [
+                    512.9961582381123,
+                    -260.36823013070136
+                ],
+                "markdown": "## The Third Chest\n\nThe third chest isn't hidden. That's what bothers Frank.\n\nIt sits in the open, square in the middle of the deck like a table centerpiece, like it was placed there *for* someone. It's newer than the other two \u2014 or at least better cared for. The wood is dark walnut, tongue-and-groove, with brass corner fittings that still catch the light. A chest like this didn't come cheap. A chest like this was *bought* for a purpose.\n\nThere's no lock. No clasp at all. Just a lid resting on its frame, easy as breathing.\n\nFrank lifts it.\n\nInside:\n\n- **A photograph**, cracked along the fold line where someone carried it in a breast pocket for too long. Two men stand on a riverbank, squinting into the sun. One is tall and lean, mid-laugh, a cigarette tucked behind his ear. The other is shorter, thicker through the shoulders, holding up a fish like a trophy. On the back, in pencil: ***\"Me & Jimmy, June. Good times.\"*** The handwriting matches the journal from the second chest.\n- **A straight razor**, folded closed, its bone handle yellowed with age. There's nothing remarkable about it until Frank opens it. The blade is immaculate \u2014 honed, oiled, cared for. Someone maintained this razor long after they stopped using it for shaving. There's a dark stain worked into the hinge that soap and time haven't been able to shift.\n- **A woman's ring**, plain gold band, sized small. No inscription inside, but there's a dent on the outer surface, a deep one, like it was struck against something hard. Or stepped on. Frank rolls it between his thumb and forefinger. It's lighter than it should be \u2014 not solid gold, then. A promise someone couldn't quite afford to keep.\n- **A torn scrap of newspaper**, brittle as dead leaves. Most of the text is gone, but the fragment that remains is from what appears to be a local crime blotter. Frank can make out: ***\"...body recovered downstream near...\"*** and below that, ***\"...no suspects at this...\"*** The date is missing. The name of the deceased is missing. Everything that would make it *useful* is missing. But someone kept it anyway.\n\nFrank stands there, the photograph in one hand, the newspaper scrap in the other.\n\nThe first chest was debris. The second was evidence. This one is something else entirely.\n\nThis is grief.\n\nWhoever packed this box knew Jimmy. Fished with him. Laughed with him. And then \u2014 if the razor and the scrap of newsprint tell the story Frank thinks they're telling \u2014 did something that couldn't be taken back.\n\nHe sets the photograph on top of the chest, face up. The two men grin at him from a summer that's long gone, standing beside a river that no longer exists.\n\n*Good times.*\n\nFrank wonders which one of them is still alive.",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "The Second Chest_1771862206032",
+                "name": "The Second Chest",
+                "event_type": "Event",
+                "pos": [
+                    519.693568124551,
+                    -390.4183771778039
+                ],
+                "markdown": "## The Second Chest\n\nThe second chest is smaller than the first \u2014 more of a strongbox, really, shoved beneath a warped bench near the stern. Unlike its companion, this one isn't rusted shut. It's *unlocked*. The clasp hangs open like a mouth mid-sentence, as if whoever left it behind wanted it found.\n\nOr left in a hurry.\n\nFrank lifts the lid. The hinges don't protest. Someone oiled them, and not that long ago \u2014 certainly long after this river stopped running.\n\nInside:\n\n- **A leather-bound journal**, swollen with moisture but still mostly legible. The entries are written in a cramped, hurried hand \u2014 no dates, just numbered passages. Most of it reads like inventory logs: quantities of something measured in *stones* and *barrels*, pickup points along the river. But the last few entries shift in tone. The handwriting gets worse. Shakier. One line, pressed so hard the pen nearly tore the page, reads: ***\"He knows. Jimmy knows.\"***\n- **A brass key**, small and ornate, too delicate for any lock on this boat. It's threaded onto a strip of rawhide like someone wore it around their neck. There's a faint etching on the bow \u2014 a symbol Frank doesn't recognise. A circle with a vertical line through it, bisected by two smaller horizontal strokes.\n- **A hand-drawn map**, rough but deliberate, sketched on the back of what appears to be a bill of sale for lumber. The map shows a stretch of river \u2014 *this* river, Frank is almost sure of it \u2014 with a single location marked upstream by a heavy X. Beside it, in the same cramped handwriting as the journal: ***\"The drop.\"***\n- **A single spent bullet casing**, rolling loose in the corner of the box. .38 caliber. Frank picks it up and turns it in his fingers. It smells like nothing anymore. Whatever story it has to tell, it told it a long time ago.\n\nFrank closes the lid slowly. The first chest held remnants \u2014 leftovers, things forgotten. But this one was *curated*. These items were kept together on purpose.\n\nSomeone wanted a record. Insurance, maybe. Or a confession they never got around to making.\n\nHe looks at the journal entry again. *He knows. Jimmy knows.*\n\nKnew. Jimmy *knew*.",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
                 "id": "New Node_2805735155136",
                 "name": "Crazy Fight",
                 "event_type": "Event",
                 "pos": [
-                    1402.8359986673308,
-                    224.76006401217785
+                    1465.5026310542623,
+                    374.65921538076077
                 ],
                 "markdown": "# Tester Face McGee!\n##  Ohh yeahh!\n### Gettin that Markdown!\n#### Run it!\n\n - **Do lists work?**\n - *Huzzah! They do!*\n - Well, __how bout that__?\n\n---\n\n[Launchable Links](https://link.ext)\n\n![Frank the Fish](projects/media/fish.jpg)\n\n",
                 "stage_notes": "",
@@ -38,6 +121,10 @@
                     "Jimmy",
                     "Frank"
                 ],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -48,8 +135,8 @@
                 "name": "Yay Food",
                 "event_type": "Dialogue",
                 "pos": [
-                    1126.4594654143848,
-                    622.9251107778147
+                    1189.126097801316,
+                    775.4139162526811
                 ],
                 "markdown": "",
                 "stage_notes": "",
@@ -57,6 +144,10 @@
                     "Jimmy",
                     "Frank"
                 ],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -67,12 +158,16 @@
                 "name": "",
                 "event_type": "Dot",
                 "pos": [
-                    607.1147503701336,
-                    629.7944350733859
+                    669.7813827570649,
+                    782.2832405482524
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -83,12 +178,16 @@
                 "name": "Yummy Food",
                 "event_type": "Event",
                 "pos": [
-                    787.7081828539,
-                    622.5514209269818
+                    850.3748152408314,
+                    775.0402264018483
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -99,12 +198,16 @@
                 "name": "Secret in a tree",
                 "event_type": "Secret",
                 "pos": [
-                    783.4179475474014,
-                    414.59115919622815
+                    841.0845799343329,
+                    575.0799646710946
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -115,14 +218,18 @@
                 "name": "Final Jimmy",
                 "event_type": "Dialogue",
                 "pos": [
-                    1111.4840633045699,
-                    331.06423526184733
+                    1174.1506956915014,
+                    483.55304073671374
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [
                     "Jimmy"
                 ],
+                "globals_vars": {},
+                "variable_name": "Morals",
+                "variable_op": "Subtract",
+                "variable_delta": 1.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -133,12 +240,16 @@
                 "name": "Jimmy",
                 "event_type": "Character",
                 "pos": [
-                    1085.5994258340197,
-                    -153.62930643482832
+                    1463.993697433457,
+                    -132.89278387768118
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": "projects/media/crow.jpg",
                 "show_bg": true,
                 "is_subnetwork": false,
@@ -149,12 +260,16 @@
                 "name": "Frank",
                 "event_type": "Character",
                 "pos": [
-                    1458.4227807272619,
-                    -150.41469691265473
+                    1945.3892417501884,
+                    -130.41262776037655
                 ],
                 "markdown": "# Tester Face McGee!\n##  Ohh yeahh!\n### Gettin that Markdown!\n#### Run it!\n\n - **Do lists work?**\n - *Huzzah! They do!*\n - Well, __how bout that__?\n\n---\n\n[Launchable Links](https://link.ext)\n\n![Frank the Fish](projects/media/fish.jpg)\n\n",
                 "stage_notes": "Lives in a swamp",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": "projects/media/fish.jpg",
                 "show_bg": true,
                 "is_subnetwork": false,
@@ -171,6 +286,10 @@
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -181,12 +300,19 @@
                 "name": "Some boat to explore",
                 "event_type": "Event",
                 "pos": [
-                    212.29874835167362,
-                    -65.05615800187701
+                    185.89713125615003,
+                    -115.59218523023904
                 ],
-                "markdown": "",
+                "markdown": "Frank sees a ragged boat in the distance.\nHe ventures over to see what treasure chests are aboard the boat first, before checking for clues.\n\nThe boat sits stuck in dry mud of a once flowing river,\nIt's sails hanging on by a thread,\nThe ship has seen better days.\n\nBut maybe there will be something left behind by Jimmy's murderer",
                 "stage_notes": "",
-                "selected_characters": [],
+                "selected_characters": [
+                    "Frank",
+                    "Jimmy"
+                ],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -197,12 +323,16 @@
                 "name": "",
                 "event_type": "Dot",
                 "pos": [
-                    76.57602735010771,
-                    119.02268236750989
+                    57.776037634028285,
+                    152.44488630720667
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -219,6 +349,10 @@
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -229,12 +363,16 @@
                 "name": "",
                 "event_type": "Dot",
                 "pos": [
-                    604.1260615392429,
-                    356.7665048107218
+                    666.7926939261743,
+                    509.2553102855882
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -245,12 +383,16 @@
                 "name": "",
                 "event_type": "Dot",
                 "pos": [
-                    586.0,
-                    139.0
+                    660.6666323869313,
+                    338.48880547486647
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -261,12 +403,16 @@
                 "name": "",
                 "event_type": "Dot",
                 "pos": [
-                    809.0,
-                    204.0
+                    871.6666323869313,
+                    356.48880547486647
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -277,14 +423,18 @@
                 "name": "Final Frank",
                 "event_type": "Dialogue",
                 "pos": [
-                    1110.6704273232517,
-                    103.82473308039204
+                    1173.337059710183,
+                    256.3135385552585
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [
                     "Frank"
                 ],
+                "globals_vars": {},
+                "variable_name": "Merit",
+                "variable_op": "Subtract",
+                "variable_delta": 1.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -295,12 +445,16 @@
                 "name": "New Node",
                 "event_type": "Event",
                 "pos": [
-                    769.0000000000001,
-                    32.67042732325223
+                    856.6666323869313,
+                    213.1592327981187
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "Merit",
+                "variable_op": "Subtract",
+                "variable_delta": 1.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -311,12 +465,16 @@
                 "name": "Messy Branching",
                 "event_type": "Info",
                 "pos": [
-                    303.0480973949097,
-                    247.5198829266604
+                    327.29252584214447,
+                    429.9864536100682
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": true,
@@ -334,6 +492,10 @@
                             "markdown": "",
                             "stage_notes": "",
                             "selected_characters": [],
+                            "globals_vars": {},
+                            "variable_name": "",
+                            "variable_op": "Add",
+                            "variable_delta": 0.0,
                             "image_path": null,
                             "show_bg": false,
                             "is_subnetwork": false,
@@ -350,6 +512,10 @@
                             "markdown": "",
                             "stage_notes": "",
                             "selected_characters": [],
+                            "globals_vars": {},
+                            "variable_name": "",
+                            "variable_op": "Add",
+                            "variable_delta": 0.0,
                             "image_path": null,
                             "show_bg": false,
                             "is_subnetwork": false,
@@ -366,6 +532,10 @@
                             "markdown": "",
                             "stage_notes": "",
                             "selected_characters": [],
+                            "globals_vars": {},
+                            "variable_name": "",
+                            "variable_op": "Add",
+                            "variable_delta": 0.0,
                             "image_path": null,
                             "show_bg": false,
                             "is_subnetwork": false,
@@ -382,6 +552,10 @@
                             "markdown": "",
                             "stage_notes": "",
                             "selected_characters": [],
+                            "globals_vars": {},
+                            "variable_name": "",
+                            "variable_op": "Add",
+                            "variable_delta": 0.0,
                             "image_path": null,
                             "show_bg": false,
                             "is_subnetwork": false,
@@ -398,6 +572,10 @@
                             "markdown": "",
                             "stage_notes": "",
                             "selected_characters": [],
+                            "globals_vars": {},
+                            "variable_name": "",
+                            "variable_op": "Add",
+                            "variable_delta": 0.0,
                             "image_path": null,
                             "show_bg": false,
                             "is_subnetwork": false,
@@ -414,6 +592,10 @@
                             "markdown": "",
                             "stage_notes": "",
                             "selected_characters": [],
+                            "globals_vars": {},
+                            "variable_name": "",
+                            "variable_op": "Add",
+                            "variable_delta": 0.0,
                             "image_path": null,
                             "show_bg": false,
                             "is_subnetwork": false,
@@ -430,6 +612,10 @@
                             "markdown": "",
                             "stage_notes": "",
                             "selected_characters": [],
+                            "globals_vars": {},
+                            "variable_name": "",
+                            "variable_op": "Add",
+                            "variable_delta": 0.0,
                             "image_path": null,
                             "show_bg": false,
                             "is_subnetwork": false,
@@ -493,12 +679,16 @@
                 "name": "End",
                 "event_type": "End",
                 "pos": [
-                    1712.8803840638125,
-                    333.3370166592496
+                    1775.5470164507437,
+                    485.8258221341161
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -515,6 +705,10 @@
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -525,12 +719,99 @@
                 "name": "Berry Bush!",
                 "event_type": "Secret",
                 "pos": [
-                    -93.00741852018822,
-                    268.6090147950166
+                    -103.45185725134345,
+                    437.8089222397315
                 ],
                 "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "New Node_2449669525840",
+                "name": "Globals",
+                "event_type": "Globals",
+                "pos": [
+                    -645.6664670458244,
+                    -313.5861205094994
+                ],
+                "markdown": "",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {
+                    "Merit": 0.0,
+                    "Morals": 0.0
+                },
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "The First Chest_2102152366208",
+                "name": "The First Chest",
+                "event_type": "Event",
+                "pos": [
+                    524.9120140564141,
+                    -510.8187166397203
+                ],
+                "markdown": "## The First Chest\n\nThe chest sits wedged beneath a collapsed section of railing, its iron clasp rusted into a permanent scowl. Frank has to kick it twice before the lid groans open, exhaling a breath of stale, river-damp air.\n\nInside, nestled in a bed of mildewed cloth:\n\n- **A tarnished pocket watch** \u2014 its face cracked, the hands frozen at **3:17**. There are initials engraved on the back, but the corrosion makes them almost impossible to read. Almost. Frank tilts it toward the light. *R. D.* \u2014 or maybe *R. B.*? He pockets it.\n- **A coil of rope**, knotted in a way that looks deliberate \u2014 not sailor's knots, something else. Something practiced.\n- **A half-empty bottle of whiskey**, the label long since peeled away. The liquid inside has turned the color of weak tea.\n- **A folded piece of paper**, pressed flat against the bottom of the chest. The ink has bled and faded, but Frank can make out fragments \u2014 a list of some kind. Names? Locations? The water damage has stolen most of it, but one word survives intact near the bottom, circled twice:\n\n  ***\"Upstream.\"***\n\nFrank stares at the word for a long moment. The river is dry now. There is no upstream anymore.\n\nBut there *was*.",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "Leaving the Boat_2020527953552",
+                "name": "Leaving the Boat",
+                "event_type": "Event",
+                "pos": [
+                    880.6308916103065,
+                    -233.94170945669006
+                ],
+                "markdown": "## Leaving the Boat\n\nFrank climbs back over the rail and drops down onto the cracked mud of the riverbed. The boat groans behind him \u2014 a slow, structural complaint, like an old man shifting in his sleep. He doesn't look back.\n\nHe turns his collar up against nothing in particular. The air is still. No wind. No water. Just the flat, pale sky and the sound of his own boots on earth that used to be a river bottom.\n\nHe takes stock.\n\nIn his pockets: a tarnished pocket watch stopped at 3:17. A brass key on a strip of rawhide, etched with a symbol he doesn't recognise. A coil of rope knotted in a way that wasn't meant for sailing. Loose journal pages \u2014 confessional, half-coherent, damning. A hand-drawn map with an X and two words: *The drop.* A woman's ring, dented and too light. A photograph of two men grinning beside a river that no longer exists.\n\nAnd the name *Jimmy*, which at this point is less a name and more a wound.\n\nThe map puts whatever he's looking for upstream. Not far \u2014 the scale is rough, but Frank's spent enough years reading bad directions to estimate. A few miles on foot, maybe less. Whatever the river used to carry through here, it carried it from somewhere. And somewhere, out there in the dry and the dust, the truth of what happened to Jimmy is still sitting where it was left.\n\nFrank looks at the horizon. Flat. Bleached. Patient.\n\nHe starts walking.",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "Leaving the Boat \u2014 No Second Chest_2020527955520",
+                "name": "Leaving the Boat \u2014 No Second Chest",
+                "event_type": "Event",
+                "pos": [
+                    877.955751444287,
+                    -83.85809478972854
+                ],
+                "markdown": "## Leaving the Boat *(Path: Second Chest Missed)*\n\nFrank climbs back over the rail and drops down onto the cracked mud of the riverbed. The boat shifts almost imperceptibly behind him \u2014 wood and rust settling, or something else. He doesn't linger to find out.\n\nHe has less than he might have. Maybe less than he *should* have \u2014 there was a bench near the stern he didn't look under, a strongbox he half-noticed and half-dismissed. It's the kind of thing you tell yourself you'll circle back to and then don't. Maybe it was nothing.\n\nMaybe.\n\nIn his pockets: a pocket watch stopped at 3:17, initials on the back he can't quite read. Loose journal pages full of guilt and arithmetic \u2014 quantities, pickup points, forty-seven tally marks gouged into a cabin wall. A word circled twice on a ruined scrap of paper: *Upstream.* A razor that was cared for too long by someone who had reasons to care for it. A photograph of two men he can put faces to now, but only one name.\n\n*Jimmy.*\n\nHe doesn't have the map. He doesn't have the brass key. He knows there's something upstream \u2014 the cabin made that much plain \u2014 but he doesn't know exactly where to look, and he doesn't have the thing that might unlock it when he gets there.\n\nFrank stands at the edge of where the riverbank used to be and looks out at the flat, featureless stretch of dried earth ahead of him.\n\nHe's done more with less.\n\nHe starts walking.",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -538,6 +819,46 @@
             }
         ],
         "connections": [
+            {
+                "start_id": "_1772007143024",
+                "start_idx": 0,
+                "end_id": "The Third Chest_1772006893664",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_1772007143024",
+                "start_idx": 0,
+                "end_id": "The Second Chest_1771862206032",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2668249802128",
+                "start_idx": 0,
+                "end_id": "_1772007143024",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "_1772007143024",
+                "start_idx": 0,
+                "end_id": "The First Chest_2102152366208",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2668249802128",
+                "start_idx": 0,
+                "end_id": "The Cabin_1772006897072",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
             {
                 "start_id": "New Node_2668249718192",
                 "start_idx": 0,
@@ -718,6 +1039,30 @@
                 "start_id": "_2668249724336",
                 "start_idx": 0,
                 "end_id": "New Node_2668249724144",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "The Cabin_1772006897072",
+                "start_idx": 0,
+                "end_id": "Leaving the Boat_2020527953552",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "The Cabin_1772006897072",
+                "start_idx": 0,
+                "end_id": "Leaving the Boat \u2014 No Second Chest_2020527955520",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "The Second Chest_1771862206032",
+                "start_idx": 0,
+                "end_id": "Leaving the Boat_2020527953552",
                 "end_idx": 0,
                 "line_style": 1,
                 "line_color": "#646464"

@@ -1,0 +1,18 @@
+# branchShredder - local LLM dependencies (optional)
+# Only needed if you want to run Llama models locally (no API key required).
+#
+# Install with:  pip install -r requirements_localLLM.txt
+#
+# Notes:
+#   - llama-cpp-python is a native C++ extension.  On Windows you may need
+#     Visual C++ Build Tools installed, or use a pre-built wheel:
+#       pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+#   - For GPU acceleration (CUDA) build with:
+#       set CMAKE_ARGS=-DGGML_CUDA=on
+#       pip install llama-cpp-python --no-cache-dir
+#   - Models are downloaded separately at runtime via the
+#     "↓ Download a Llama model…" option in the AI Prompt Bar.
+#     They are stored in the project's models/ folder (not bundled here).
+
+huggingface_hub>=0.26.0
+llama-cpp-python>=0.3.16

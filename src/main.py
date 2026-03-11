@@ -1,18 +1,39 @@
 from PyQt6.QtWidgets import (QMainWindow, QGraphicsView, QGraphicsScene, 
                              QWidget, QHBoxLayout, QVBoxLayout, 
-                             QPushButton, QToolBar, QMessageBox, 
-                             QInputDialog, QApplication, QFileDialog,
-                             QSplitter, QSizePolicy)
-from PyQt6.QtCore import Qt, pyqtSignal, QPointF
+                             QToolBar, QMessageBox, 
+                             QApplication, QFileDialog,
+                             QSplitter, QSizePolicy, QRubberBand,
+                             QProgressBar, QLabel)
+from PyQt6.QtCore import Qt, QPointF, QRect, QSize, QTimer
 from PyQt6.QtGui import QAction, QPainter, QColor, QPen
 
 import os
 from models import NodeData, NodeType, ProjectSettings
 from graph_items import BaseNodeItem, ConnectionItem, SocketItem
-from widgets import NodeInspector, SettingsSidebar, StoryWritingBar, ConnectionInspector
+from widgets import NodeInspector, SettingsSidebar, StoryWritingBar, ConnectionInspector, AIPromptBar
 from manager import ProjectManager
+from ai_manager import AIManager
+
+scriptName = "branchShredder"
+scriptVersion = "0.2"
+
+class StatusMessageType:
+    NONE = -1
+    OPEN = 0
+    INFO = 1
+    ERROR = 2
+    SUCCESS = 3
+
+_STATUS_COLORS = {
+    StatusMessageType.NONE:    "#aaaaaa",
+    StatusMessageType.OPEN:    "#83c1ff",
+    StatusMessageType.INFO:    "#aaaaaa",
+    StatusMessageType.ERROR:   "#de5c5c",
+    StatusMessageType.SUCCESS: "#78ee8f",
+}
 
 class GraphScene(QGraphicsScene):
+    
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
@@ -47,7 +68,7 @@ class GraphScene(QGraphicsScene):
         right  = int(rect.right())  + GRID_MINOR
         bottom = int(rect.bottom()) + GRID_MINOR
 
-        # Minor lines — step exactly by GRID_MINOR
+        # Minor lines - step exactly by GRID_MINOR
         painter.setPen(minor_pen)
         x = left
         while x <= right:
@@ -58,7 +79,7 @@ class GraphScene(QGraphicsScene):
             painter.drawLine(left, y, right, y)
             y += GRID_MINOR
 
-        # Major lines drawn on top — step exactly by GRID_MAJOR
+        # Major lines drawn on top - step exactly by GRID_MAJOR
         # (independent of GRID_MINOR so spacing is always correct)
         major_left = int(rect.left()) - (int(rect.left()) % GRID_MAJOR)
         major_top  = int(rect.top())  - (int(rect.top())  % GRID_MAJOR)
@@ -118,6 +139,8 @@ class GraphView(QGraphicsView):
         self._current_connection = None
         self._drag_node = None
         self._drag_start_pos = None
+        self._rubber_band = None
+        self._rubber_band_origin = None
 
     def setScene(self, scene):
         old = self.scene()
@@ -144,7 +167,30 @@ class GraphView(QGraphicsView):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            shift_held = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
             items = self.items(event.pos())
+
+            if shift_held:
+                # Shift+Click on a node: toggle it in/out of the selection.
+                for item in items:
+                    temp = item
+                    while temp and not isinstance(temp, BaseNodeItem):
+                        temp = temp.parentItem()
+                    if isinstance(temp, BaseNodeItem):
+                        temp.setSelected(not temp.isSelected())
+                        return
+                # Shift+drag on empty space: start rubber-band area select.
+                self._rubber_band_origin = event.pos()
+                if self._rubber_band is None:
+                    self._rubber_band = QRubberBand(
+                        QRubberBand.Shape.Rectangle, self.viewport()
+                    )
+                self._rubber_band.setGeometry(
+                    QRect(self._rubber_band_origin, QSize(0, 0))
+                )
+                self._rubber_band.show()
+                return
+
             found_socket = None
             for item in items:
                 temp = item
@@ -216,7 +262,7 @@ class GraphView(QGraphicsView):
                 end_sock.connections.append(self._current_connection)
                 self._current_connection = None
             else:
-                # Check if dropped onto a node body — connect to its first compatible socket
+                # Check if dropped onto a node body - connect to its first compatible socket
                 origin_socket = self._current_connection.socket_start
                 found_node = None
                 for item in items:
@@ -273,7 +319,7 @@ class GraphView(QGraphicsView):
             node = self._drag_node
             delta = node.pos() - self._drag_start_pos
             if abs(delta.x()) > 1 or abs(delta.y()) > 1:
-                # Node was moved — check if it landed on a connection
+                # Node was moved - check if it landed on a connection
                 if node.inputs and node.outputs and not node.inputs[0].connections:
                     for item in list(self.scene().items()):
                         if (isinstance(item, ConnectionItem) and item.socket_end and
@@ -289,6 +335,19 @@ class GraphView(QGraphicsView):
                             break
             self._drag_node = None
             self._drag_start_pos = None
+
+        if self._rubber_band and self._rubber_band.isVisible():
+            sel_rect = QRect(self._rubber_band_origin, event.pos()).normalized()
+            scene_rect = self.mapToScene(sel_rect).boundingRect()
+            for item in self.scene().items(scene_rect):
+                temp = item
+                while temp and not isinstance(temp, BaseNodeItem):
+                    temp = temp.parentItem()
+                if isinstance(temp, BaseNodeItem):
+                    temp.setSelected(True)
+            self._rubber_band.hide()
+            self._rubber_band_origin = None
+            return
 
         if self._dragging:
             self.setDragMode(QGraphicsView.DragMode.NoDrag)
@@ -339,6 +398,11 @@ class GraphView(QGraphicsView):
         if self._current_connection:
             self._current_connection.last_pos = self.mapToScene(event.pos())
             self._current_connection.updatePath()
+
+        if self._rubber_band and self._rubber_band.isVisible():
+            self._rubber_band.setGeometry(
+                QRect(self._rubber_band_origin, event.pos()).normalized()
+            )
 
         if hasattr(self, '_right_click_zoom') and self._right_click_zoom:
             diffX = event.pos().x() - self._last_mouse_pos.x()
@@ -417,12 +481,20 @@ class GraphView(QGraphicsView):
         self.setScene(node_item.node_data.subnetwork_id)
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, autoBoot = True):
         super().__init__()
-        self.setWindowTitle("branchShredder")
-        self.resize(1200, 800)
+        self.project_manager = ProjectManager()
+
+        if autoBoot:
+          self.boot()
+
+    def boot(self):
+        title = f"{scriptName} v{scriptVersion}"
+        self.setWindowTitle( title )
+        self.resize( 1200, 800 )
         
         self.settings = ProjectSettings()
+        self.ai_manager = AIManager()
         
         # Main vertical splitter (Graph on top, Story on bottom)
         self.v_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -474,17 +546,108 @@ class MainWindow(QMainWindow):
         
         # Bottom Area: Story Writing Bar
         self.story_bar = StoryWritingBar()
-        
+
+        # Bottom Area: AI Prompt Bar
+        self.ai_bar = AIPromptBar(self.ai_manager, self.settings,
+                                  scene_getter=lambda: self.view.scene())
+
         self.v_splitter.addWidget(self.top_container)
         self.v_splitter.addWidget(self.story_bar)
+        self.v_splitter.addWidget(self.ai_bar)
         self.v_splitter.setStretchFactor(0, 3)
         self.v_splitter.setStretchFactor(1, 1)
+        self.v_splitter.setStretchFactor(2, 1)
+        self.ai_bar.setVisible(self.settings.show_ai_bar)
         
         self.view._selection_handler = self.on_selection_changed
         self.view.setScene(self.scene)
         
         self.create_menu()
         self.create_toolbar()
+        self._setup_status_bar()
+
+
+    # ------------------------------------------------------------------
+    # Status bar helpers
+    # ------------------------------------------------------------------
+
+
+    def _setup_status_bar(self):
+        sb = self.statusBar()
+        sb.setStyleSheet("""
+            QStatusBar {
+                background: #252525;
+                color: #aaaaaa;
+                border-top: 1px solid #3a3a3a;
+                font-size: 9pt;
+            }
+            QStatusBar::item { border: none; }
+        """)
+
+        # Custom label so we can set per-message colours
+        self._status_label = QLabel("")
+        self._status_label.setStyleSheet("color: #aaaaaa; padding: 0 4px;")
+        sb.addWidget(self._status_label)
+
+        # Single-shot timer to auto-clear the label
+        self._status_timer = QTimer(self)
+        self._status_timer.setSingleShot(True)
+        self._status_timer.timeout.connect(lambda: self._status_label.setText(""))
+
+        self._status_progress = QProgressBar()
+        self._status_progress.setRange(0, 0)   # indeterminate busy indicator
+        self._status_progress.setTextVisible(False)
+        self._status_progress.setMaximumWidth(160)
+        self._status_progress.setMaximumHeight(14)
+        self._status_progress.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #555555;
+                border-radius: 3px;
+                background: #333333;
+            }
+            QProgressBar::chunk {
+                background: #5a9fd4;
+                border-radius: 2px;
+            }
+        """)
+        self._status_progress.hide()
+        sb.addPermanentWidget(self._status_progress)
+
+    def show_status(self, msg: str, duration_ms: int = 5000, type: int = StatusMessageType.NONE):
+        """Display a timed, coloured message in the status bar."""
+        color = _STATUS_COLORS.get(type, "#aaaaaa")
+        self._status_label.setStyleSheet(f"color: {color}; padding: 0 4px;")
+        self._status_label.setText(msg)
+        self._status_timer.start(duration_ms)
+
+    def _set_download_active(self, msg: str):
+        """Show a persistent download status with an indeterminate progress bar."""
+        self._status_timer.stop()
+        self._status_label.setStyleSheet(f"color: {self._STATUS_COLORS[StatusMessageType.OPEN]}; padding: 0 4px;")
+        self._status_label.setText(msg)
+        self._status_progress.show()
+
+    def _set_download_done(self, msg: str):
+        """Hide the progress bar and show a timed completion/error message."""
+        self._status_progress.hide()
+        is_error = msg.lower().startswith("download error")
+        stype = StatusMessageType.ERROR if is_error else StatusMessageType.SUCCESS
+        self.show_status(msg, 5000, stype)
+
+    # ------------------------------------------------------------------
+
+    def keyPressEvent(self, event):
+        isControl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        isShift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+        if event.key() == Qt.Key.Key_S and isShift and isControl:
+            self.save_project_as()
+            return
+        elif event.key() == Qt.Key.Key_S and isControl:
+            self.save_project()
+            return
+        
+        super().keyPressEvent(event)
+
 
     def get_all_character_names(self):
         # Gather names from all CHARACTER-type nodes in the current scene and all parent scenes
@@ -498,6 +661,17 @@ class MainWindow(QMainWindow):
                         names.append(name)
             scene = scene.parent_scene
         return sorted(set(names))
+
+    def get_network_variables(self):
+        """Collect all variables declared by GLOBALS nodes in the current and parent scenes."""
+        vars_dict = {}
+        scene = self.view.scene()
+        while scene:
+            for item in scene.items():
+                if isinstance(item, BaseNodeItem) and item.node_data.event_type == NodeType.GLOBALS:
+                    vars_dict.update(item.node_data.globals_vars)
+            scene = scene.parent_scene
+        return vars_dict
 
     def create_menu(self):
         menubar = self.menuBar()
@@ -515,6 +689,10 @@ class MainWindow(QMainWindow):
         save_act.triggered.connect(self.save_project)
         file_menu.addAction(save_act)
 
+        save_as_act = QAction("&Save As...", self)
+        save_as_act.triggered.connect(self.save_project_as)
+        file_menu.addAction(save_as_act)
+
         file_menu.addSeparator()
 
         quit_act = QAction("&Quit", self)
@@ -530,13 +708,15 @@ class MainWindow(QMainWindow):
             "Zoom Scene" : "Right Click + Drag",
             "Create Node" : "Left Click -or- Drag line out from a Socket & Release",
             "Select Node / Connection Line" : "Left Click",
+            "Select Multiple Nodes" : "Shift + Left Click -or- Shift + Drag Empty Area",
             "Delete Selected Node/Connection" : "Delete Key",
             "Reconnect" : "Click+Drag on Connected Socket",
             "Disconnect all connections on selected node" : "Press `Y`",
             "Insert Dot on Connection" : "Double Click on Connection Line",
             "Insert Node on Connection" : "Drag+Drop Node onto Connection Line",
             "Create / Enter Subnetwork" : "Double Click on Node -or- Click 'Create/Enter Subnet' -or- Press 'I'",
-            "Exit Subnetwork" : "Click 'Exit Subnet' -or- Press 'U'"
+            "Exit Subnetwork" : "Click 'Exit Subnet' -or- Press 'U'",
+            "Nova AI" : "Enable in Project Settings, shows at bottom of window"
         }
 
         
@@ -621,17 +801,25 @@ class MainWindow(QMainWindow):
 
     def on_selection_changed(self):
         items = self.view.scene().selectedItems()
-        node_item = None
-        conn_item = None
-        for item in items:
-            if isinstance(item, BaseNodeItem) and not node_item:
-                node_item = item
-            elif isinstance(item, ConnectionItem) and not conn_item:
-                conn_item = item
-        
+        node_items = [i for i in items if isinstance(i, BaseNodeItem)]
+        conn_item = next((i for i in items if isinstance(i, ConnectionItem)), None)
+
+        if len(node_items) > 1:
+            # Multiple nodes selected - clear the inspector so nothing is editable
+            self.inspector.set_node(None)
+            self.story_bar.set_node(None, [])
+            self._selected_item = None
+            self.settings_sidebar.hide()
+            self.connection_inspector.hide()
+            self.inspector.show()
+            return
+
+        node_item = node_items[0] if node_items else None
+
         if node_item:
             node_data = node_item.node_data
-            self.inspector.set_node(node_data)
+            self.inspector.set_node(node_data, node_item)
+            self.inspector.set_network_variables(self.get_network_variables())
             self.inspector.set_available_characters(self.get_all_character_names())
             self._selected_item = node_item
             self._last_event_type = node_data.event_type
@@ -682,6 +870,8 @@ class MainWindow(QMainWindow):
                 # Refresh available character list in case type changed to/from Dialogue/Event
                 if type_changed:
                     self.inspector.set_available_characters(self.get_all_character_names())
+                # Refresh variable list (GLOBALS node may have changed; type change may affect panels)
+                self.inspector.set_network_variables(self.get_network_variables())
 
                 # If we renamed an END node inside a subnetwork, the parent needs to update labels
                 scene = self.view.scene()
@@ -700,6 +890,10 @@ class MainWindow(QMainWindow):
                     sock.apply_size(self.settings.socket_size)
         # Redraw background (grid visibility/spacing may have changed)
         self.view.scene().update()
+        # Show/hide AI bar and refresh model list when visibility or keys may have changed
+        self.ai_bar.setVisible(self.settings.show_ai_bar)
+        if self.settings.show_ai_bar:
+            self.ai_bar.refresh_models()
 
     def delete_selected_node(self):
         items = self.view.scene().selectedItems()
@@ -764,26 +958,34 @@ class MainWindow(QMainWindow):
         self._populate_default_scene(new_scene)
         self.view.setScene(new_scene)
         self.inspector.set_node(None)
+        self.ai_bar.setVisible(self.settings.show_ai_bar)
+        self.show_status("New project created.")
         
-    def save_project(self):
+    def save_project_as(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save Project", "", "JSON Files (*.json)")
         if path:
-            mgr = ProjectManager()
-            mgr.save_project(path, self.scene, self.settings)
-            QMessageBox.information(self, "Save", f"Project saved to {path}")
+            self.project_manager.save_project_as( path, self.scene, self.settings )
+            self.show_status(f"Saved: {os.path.basename(path)}")
+    
+    def save_project(self):
+        if self.project_manager and self.project_manager.current_project_path:
+            self.project_manager.save_project( self.scene, self.settings )
+            self.show_status(f"Saved: {os.path.basename(self.project_manager.current_project_path)}")
+        else:
+            self.save_project_as()
             
     def load_project(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open Project", "", "JSON Files (*.json)")
         if path:
-             mgr = ProjectManager()
-             root_data = mgr.load_project(path, self.settings)
-             # Basic reconstruction for root:
-             new_scene = GraphScene(self.settings)
-             self.reconstruct_scene(new_scene, root_data)
-             self.view.setScene(new_scene)
-             self.scene = new_scene # Update main ref
-             self.settings_sidebar.refresh()
-             QMessageBox.information(self, "Load", f"Project loaded from {path}")
+            root_data = self.project_manager.load_project(path, self.settings)
+            # Basic reconstruction for root:
+            new_scene = GraphScene(self.settings)
+            self.reconstruct_scene(new_scene, root_data)
+            self.view.setScene(new_scene)
+            self.scene = new_scene # Update main ref
+            self.settings_sidebar.refresh()
+            self.ai_bar.setVisible(self.settings.show_ai_bar)
+            self.show_status(f"Opened: {os.path.basename(path)}",  type=StatusMessageType.OPEN )
 
     def reconstruct_scene(self, scene, data):
         node_map = {}
@@ -796,6 +998,10 @@ class MainWindow(QMainWindow):
             node.markdown_content = ndata["markdown"]
             node.stage_notes = ndata["stage_notes"]
             node.selected_characters = ndata.get("selected_characters", [])
+            node.globals_vars = ndata.get("globals_vars", {})
+            node.variable_name = ndata.get("variable_name", "")
+            node.variable_op = ndata.get("variable_op", "Add")
+            node.variable_delta = ndata.get("variable_delta", 0.0)
             node.image_path = ndata["image_path"]
             node.show_bg_image = ndata["show_bg"]
             node.is_subnetwork = ndata["is_subnetwork"]
