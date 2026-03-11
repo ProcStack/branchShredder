@@ -61,20 +61,25 @@ python src/main.py
 
 ### AI Assistant `Nova` -
 
-I've included an AI assist I'm calling `Nova` to help with suggestions, finding continuity issues, and to make new nodes with written content.
+I've included an AI assist I'm calling `Nova` to help with suggestions, finding continuity issues, and make new nodes with written content.
 
-I made the chioce to add AI since this does seem like a type of things that writer's block might come up with branching stories.  
+I made the chioce to add AI since this does seem like a type of things that might help writer's block.  
 So I figured having the option to use an AI in the interface might be helpful.
+
 <br/>However, it's up to you to turn on the AI Prompt in your Project Settings.
-<br/> **Project Settings > AI Assistant > Show AI Prompt Bar**
+<br/> **`Project Settings > AI Assistant > Show AI Prompt Bar`**
 <br/>The AI Prompt bar will appear at the bottom of your window.
 
 You have API access to OpenAI's ChatGPT, Anthropic's Claude, X's Groq, Google's Gemini & Meta's Llama.
 <br/>Of these, Llama can be downloaded an ran on your computer locally.
-<br/>This means none of your story is sent to some server or trained on your writing.
-<br/>So if you're weary of using ai to help you write, while it trains off your work, you have an options to avoid that.
+<br/>This means none of your story is sent to some server or trained on your writing, when using Llama.
+<br/>So if you're weary of using ai to help you write, while it trains off your work, you have an option to avoid that.
 
 If you choose to use Llama, it will automatically download for you once you select the model you want to download and use.
+
+When prompting, use the "Include Selected Nodes" toggle to send the content of those selected node with the LLM prompt.
+The LLM will be able to understand the flow of your nodes, type of nodes, characters associated, and the writing itself.
+This also allowing the LLM to spot continuity issues between different branching events.
 
 #### Cloud AI Providers
 
