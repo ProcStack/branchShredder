@@ -93,10 +93,10 @@ GOOGLE_API_KEY=...
 
 | Provider | Models | Get a key |
 |---|---|---|
-| OpenAI | GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-3.5 Turbo | https://platform.openai.com/api-keys |
-| Anthropic | Claude 3.5 Sonnet/Haiku, Claude 3 Opus | https://console.anthropic.com/settings/keys |
-| Groq | Llama 3.3 70B, Llama 3.1 8B, Mixtral, Gemma 2 | https://console.groq.com/keys |
-| Google | Gemini 2.0 Flash, 1.5 Pro/Flash | https://aistudio.google.com/app/apikey |
+| OpenAI | ChatGPT | https://platform.openai.com/api-keys |
+| Anthropic | Claude; Sonnet, Haiku, & Opus | https://console.anthropic.com/settings/keys |
+| Groq | Llama, Mixtral, Gemma | https://console.groq.com/keys |
+| Google | Gemini | https://aistudio.google.com/app/apikey |
 
 After adding or editing keys, click the **↺** button in the AI Prompt Bar to reload the keys.
 
