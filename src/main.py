@@ -8,14 +8,18 @@ from PyQt6.QtCore import Qt, QPointF, QRect, QSize, QTimer
 from PyQt6.QtGui import QAction, QPainter, QColor, QPen, QPalette
 
 import os
-from models import NodeData, NodeType, ProjectSettings
-from graph_items import BaseNodeItem, ConnectionItem, SocketItem
-from widgets import NodeInspector, SettingsSidebar, StoryWritingBar, ConnectionInspector, AIPromptBar
-from manager import ProjectManager
-from ai_manager import AIManager
+from .models import NodeData, NodeType, ProjectSettings
+from .graph_items import BaseNodeItem, ConnectionItem, SocketItem
+from .widgets import NodeInspector, SettingsSidebar, StoryWritingBar, ConnectionInspector
+from .ai_widgets import AIPromptBar
+
+from .manager import ProjectManager
+from .ai_manager import AIManager
+from .markdown_renderer import MarkdownRenderer
 
 scriptName = "branchShredder"
-scriptVersion = "0.2"
+scriptTitle = "Branch Shredder"
+scriptVersion = "0.3"
 
 class StatusMessageType:
     NONE = -1
@@ -489,7 +493,7 @@ class MainWindow(QMainWindow):
           self.boot()
 
     def boot(self):
-        title = f"{scriptName} v{scriptVersion}"
+        title = f"{scriptTitle} v{scriptVersion}"
         self.setWindowTitle( title )
         self.resize( 1200, 800 )
         
@@ -576,7 +580,7 @@ class MainWindow(QMainWindow):
         sb = self.statusBar()
         sb.setStyleSheet("""
             QStatusBar {
-                background: #383838;
+                background: #353535;
                 color: #aaaaaa;
                 border-top: 1px solid #4e4e4e;
                 font-size: 9pt;
@@ -659,7 +663,7 @@ class MainWindow(QMainWindow):
                     name = item.node_data.name.strip()
                     if name:
                         names.append(name)
-            scene = scene.parent_scene
+            scene = getattr(scene, 'parent_scene', None)
         return sorted(set(names))
 
     def get_network_variables(self):
@@ -670,7 +674,7 @@ class MainWindow(QMainWindow):
             for item in scene.items():
                 if isinstance(item, BaseNodeItem) and item.node_data.event_type == NodeType.GLOBALS:
                     vars_dict.update(item.node_data.globals_vars)
-            scene = scene.parent_scene
+            scene = getattr(scene, 'parent_scene', None)
         return vars_dict
 
     def create_menu(self):
@@ -785,8 +789,54 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.settings_act)
 
         spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        spacer.setFixedWidth(8)
+        toolbar.addWidget(spacer)
+
+        self.font_dec_act = QAction("A−", self)
+        self.font_dec_act.setToolTip("Decrease text size")
+        self.font_dec_act.triggered.connect(lambda: self.adjust_font_size(-1))
+        toolbar.addAction(self.font_dec_act)
+
+        self.font_inc_act = QAction("A+", self)
+        self.font_inc_act.setToolTip("Increase text size")
+        self.font_inc_act.triggered.connect(lambda: self.adjust_font_size(1))
+        toolbar.addAction(self.font_inc_act)
+
+        spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         toolbar.addWidget(spacer)
+
+    def adjust_font_size(self, delta):
+        new_size = max(7, min(24, self.settings.font_size + delta))
+        if new_size == self.settings.font_size:
+            return
+        self.settings.font_size = new_size
+        # Scale the application-wide UI font so sidebars/labels follow along
+        app = QApplication.instance()
+        app_font = app.font()
+        app_font.setPointSize(new_size)
+        app.setFont(app_font)
+        # Keep the markdown renderer in sync
+        MarkdownRenderer.set_font_size(new_size)
+        # Update text editor widgets directly (QApplication.setFont won't
+        # retroactively resize existing QTextEdit documents)
+        from PyQt6.QtGui import QFont as _QFont
+        _ef = _QFont()
+        _ef.setPointSize(new_size)
+        for widget in (
+            self.story_bar.text_editor,
+            self.story_bar.stage_notes,
+            self.ai_bar.prompt_input,
+        ):
+            widget.setFont(_ef)
+        # Re-render any visible markdown HTML so font size takes effect immediately
+        self.ai_bar.refresh_font()
+        if self.story_bar.preview_browser.isVisible():
+            self.story_bar._update_preview()
+        # Refresh all node appearances
+        self.on_settings_changed()
+        self.show_status(f"Text size: {new_size}pt")
 
     def toggle_settings_sidebar(self):
         if self.settings_sidebar.isHidden():
@@ -940,10 +990,198 @@ class MainWindow(QMainWindow):
             self.view.setScene(curr.parent_scene)
 
     def enter_selected_subnet(self):
-        for item in self.view.scene().selectedItems():
+        scene = self.view.scene()
+        selected_nodes = [i for i in scene.selectedItems() if isinstance(i, BaseNodeItem)]
+        if len(selected_nodes) > 1:
+            self._collapse_multi_to_subnet(selected_nodes)
+            return
+        # Single-node: original behavior
+        for item in scene.selectedItems():
             if isinstance(item, BaseNodeItem):
                 self.view.handle_node_double_click(item)
                 break
+
+    def _collapse_multi_to_subnet(self, selected_nodes):
+        """Collapse multiple selected nodes into a new subnet, replacing them in
+        the parent with a single SUBNETWORK node.
+
+        - External incoming connections → a START node wired to the receiving nodes.
+        - Each external outgoing connection → a named END node ("<source node name> End")
+          wired from the outgoing node inside the subnet.
+        - The subnet node in the parent is re-wired to match all outgoing END nodes.
+        """
+        scene = self.view.scene()
+
+        res = QMessageBox.question(
+            self, "Create Subnetwork",
+            f"Collapse {len(selected_nodes)} selected nodes into a new subnetwork?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if res != QMessageBox.StandardButton.Yes:
+            return
+
+        selected_id_set = {id(n) for n in selected_nodes}
+
+        # --- 1. Catalog connections by stable (node, index) pairs ---
+        # Using node-object + socket index so references survive create_sockets() rebuilds.
+        seen_conn_ids: set = set()
+        internal_connections = []  # (src_node, src_out_idx, dst_node, dst_in_idx)
+        external_incoming = []     # (parent_src_socket, dst_node_in_sel, dst_in_idx)
+        external_outgoing = []     # (src_node_in_sel, src_out_idx, parent_dst_socket)
+
+        for node in selected_nodes:
+            for in_idx, sock in enumerate(node.inputs):
+                for conn in list(sock.connections):
+                    if id(conn) in seen_conn_ids:
+                        continue
+                    if not conn.socket_start or not conn.socket_end:
+                        continue
+                    seen_conn_ids.add(id(conn))
+                    src_node = conn.socket_start.node_item
+                    try:
+                        src_out_idx = src_node.outputs.index(conn.socket_start)
+                    except ValueError:
+                        src_out_idx = 0
+                    if id(src_node) in selected_id_set:
+                        internal_connections.append((src_node, src_out_idx, node, in_idx))
+                    else:
+                        external_incoming.append((conn.socket_start, node, in_idx))
+
+            for out_idx, sock in enumerate(node.outputs):
+                for conn in list(sock.connections):
+                    if id(conn) in seen_conn_ids:
+                        continue
+                    if not conn.socket_start or not conn.socket_end:
+                        continue
+                    seen_conn_ids.add(id(conn))
+                    dst_node = conn.socket_end.node_item
+                    try:
+                        dst_in_idx = dst_node.inputs.index(conn.socket_end)
+                    except ValueError:
+                        dst_in_idx = 0
+                    if id(dst_node) not in selected_id_set:
+                        external_outgoing.append((node, out_idx, conn.socket_end))
+                    else:
+                        # Capture here directly — the input scan will skip it
+                        # because it's already in seen_conn_ids.
+                        internal_connections.append((node, out_idx, dst_node, dst_in_idx))
+
+        # --- 2. Remove every connection touching the selected nodes ---
+        all_conns: set = set()
+        for node in selected_nodes:
+            for sock in node.inputs + node.outputs:
+                for conn in sock.connections:
+                    all_conns.add(conn)
+        for conn in all_conns:
+            self.view._remove_connection(conn)
+
+        # --- 3. Layout metrics (in parent scene coords, before move) ---
+        center_x   = sum(n.pos().x() + n.rect().width()  / 2 for n in selected_nodes) / len(selected_nodes)
+        center_y   = sum(n.pos().y() + n.rect().height() / 2 for n in selected_nodes) / len(selected_nodes)
+        min_x      = min(n.pos().x()                         for n in selected_nodes)
+        min_y      = min(n.pos().y()                         for n in selected_nodes)
+        max_x_edge = max(n.pos().x() + n.rect().width()      for n in selected_nodes)
+
+        # Translate so the cluster's top-left corner lands at (250, 200) inside the subnet.
+        offset_x = 250 - min_x
+        offset_y = 200 - min_y
+
+        # --- 4. Create the new subnet scene ---
+        new_scene = GraphScene(self.settings)
+        new_scene.parent_scene = scene
+        new_scene.name = selected_nodes[0].node_data.name
+
+        # --- 5. Move selected nodes into the new scene ---
+        # Qt supports transferring items between scenes via removeItem / addItem.
+        # Child SocketItems travel with their parent BaseNodeItem automatically.
+        for node in selected_nodes:
+            old_pos = node.pos()
+            scene.removeItem(node)
+            node.setPos(old_pos.x() + offset_x, old_pos.y() + offset_y)
+            new_scene.addItem(node)
+            node.create_sockets()  # re-register sockets in the new scene context
+
+        # --- 6. Re-create internal connections inside the subnet ---
+        for (src_node, src_idx, dst_node, dst_in_idx) in internal_connections:
+            if src_idx < len(src_node.outputs) and dst_in_idx < len(dst_node.inputs):
+                new_scene.create_connection(
+                    src_node.outputs[src_idx], dst_node.inputs[dst_in_idx]
+                )
+
+        # --- 7. START node — centred vertically on the moved cluster ---
+        avg_cy = sum(n.pos().y() + n.rect().height() / 2 for n in selected_nodes) / len(selected_nodes)
+        start_node = new_scene.add_node(80, avg_cy - 20, NodeData("Start", NodeType.START))
+
+        # Wire START → each distinct internal node that had an external input
+        connected_to_start: set = set()
+        for (_, dst_node, dst_in_idx) in external_incoming:
+            if id(dst_node) not in connected_to_start:
+                connected_to_start.add(id(dst_node))
+                if start_node.outputs and dst_in_idx < len(dst_node.inputs):
+                    new_scene.create_connection(
+                        start_node.outputs[0], dst_node.inputs[dst_in_idx]
+                    )
+
+        # --- 8. END nodes — one per unique external destination node ---
+        # Group connections by destination node so that multiple selected nodes
+        # all pointing to the same outside node share one End node.
+        _seen_dst: dict = {}
+        grouped_outgoing = []
+        for (src_node, src_out_idx, parent_dst_sock) in external_outgoing:
+            key = id(parent_dst_sock.node_item)
+            if key not in _seen_dst:
+                _seen_dst[key] = len(grouped_outgoing)
+                grouped_outgoing.append({'dst_node': parent_dst_sock.node_item, 'entries': []})
+            grouped_outgoing[_seen_dst[key]]['entries'].append((src_node, src_out_idx, parent_dst_sock))
+
+        end_x = max_x_edge + offset_x + 150
+        for i, group in enumerate(grouped_outgoing):
+            entries = group['entries']
+            # Single-source: name after the source node; multi-source: name after the destination.
+            if len(entries) == 1:
+                end_name = f"{entries[0][0].node_data.name} End"
+            else:
+                end_name = f"{group['dst_node'].node_data.name} End"
+            end_node = new_scene.add_node(end_x, 200 + i * 90, NodeData(end_name, NodeType.END))
+            for (src_node, src_out_idx, _) in entries:
+                if src_out_idx < len(src_node.outputs) and end_node.inputs:
+                    new_scene.create_connection(src_node.outputs[src_out_idx], end_node.inputs[0])
+
+        # Fallback: if no external outgoing, place a plain END so the subnet isn't empty.
+        if not external_outgoing:
+            new_scene.add_node(end_x, avg_cy - 20, NodeData("End", NodeType.END))
+
+        # --- 9. Create SUBNETWORK node in the parent ---
+        subnet_data = NodeData(new_scene.name, NodeType.NOTE)
+        subnet_item = scene.add_node(center_x - 75, center_y - 50, subnet_data)
+        subnet_item.node_data.is_subnetwork = True
+        subnet_item.node_data.subnetwork_id = new_scene
+        new_scene.itemAddedOrRemoved = lambda: subnet_item.create_sockets()
+        subnet_item.create_sockets()
+        subnet_item.update_appearance()
+        if hasattr(scene, 'itemAddedOrRemoved'):
+            scene.itemAddedOrRemoved()
+
+        # --- 10. Re-wire parent connections to/from the subnet node ---
+        # External incoming sources → subnet input socket
+        seen_src_socks: set = set()
+        for (parent_src_sock, _, _) in external_incoming:
+            if id(parent_src_sock) not in seen_src_socks:
+                seen_src_socks.add(id(parent_src_sock))
+                if subnet_item.inputs:
+                    scene.create_connection(parent_src_sock, subnet_item.inputs[0])
+
+        # Subnet outputs → external outgoing targets (output order mirrors grouped END node order)
+        for i, group in enumerate(grouped_outgoing):
+            if i < len(subnet_item.outputs):
+                seen_dst_socks: set = set()
+                for (_, _, parent_dst_sock) in group['entries']:
+                    if id(parent_dst_sock) not in seen_dst_socks:
+                        seen_dst_socks.add(id(parent_dst_sock))
+                        scene.create_connection(subnet_item.outputs[i], parent_dst_sock)
+
+        # --- 11. Enter the new subnet ---
+        self.view.setScene(new_scene)
 
     def _populate_default_scene(self, scene):
         """Add an unconnected Start node (left) and End node (right) to a blank scene."""
@@ -983,6 +1221,12 @@ class MainWindow(QMainWindow):
             self.scene = new_scene # Update main ref
             self.settings_sidebar.refresh()
             self.ai_bar.setVisible(self.settings.show_ai_bar)
+            # Apply the loaded font size to the app and markdown renderer
+            app = QApplication.instance()
+            app_font = app.font()
+            app_font.setPointSize(self.settings.font_size)
+            app.setFont(app_font)
+            MarkdownRenderer.set_font_size(self.settings.font_size)
             self.show_status(f"Opened: {os.path.basename(path)}",  type=StatusMessageType.OPEN )
 
     def reconstruct_scene(self, scene, data):
@@ -1048,11 +1292,11 @@ if __name__ == "__main__":
     _p.setColor(QPalette.ColorRole.Window,          QColor("#404040"))  # panel / sidebar bg
     _p.setColor(QPalette.ColorRole.WindowText,      QColor("#dddddd"))
     _p.setColor(QPalette.ColorRole.Base,            QColor("#1e1e1e"))  # text-editor / list bg (kept dark)
-    _p.setColor(QPalette.ColorRole.AlternateBase,   QColor("#383838"))
+    _p.setColor(QPalette.ColorRole.AlternateBase,   QColor("#353535"))
     _p.setColor(QPalette.ColorRole.ToolTipBase,     QColor("#363636"))
     _p.setColor(QPalette.ColorRole.ToolTipText,     QColor("#dddddd"))
     _p.setColor(QPalette.ColorRole.Text,            QColor("#dddddd"))
-    _p.setColor(QPalette.ColorRole.Button,          QColor("#383838"))  # button / header bg
+    _p.setColor(QPalette.ColorRole.Button,          QColor("#353535"))  # button / header bg
     _p.setColor(QPalette.ColorRole.ButtonText,      QColor("#dddddd"))
     _p.setColor(QPalette.ColorRole.BrightText,      QColor("#ffffff"))
     _p.setColor(QPalette.ColorRole.Link,            QColor("#5c9fd8"))
@@ -1065,6 +1309,50 @@ if __name__ == "__main__":
     _p.setColor(QPalette.ColorRole.Shadow,          QColor("#1a1a1a"))
     _p.setColor(QPalette.ColorRole.PlaceholderText, QColor("#666666"))
     app.setPalette(_p)
+    app.setStyleSheet("""
+        QScrollBar:vertical {
+            background: transparent;
+            width: 6px;
+            margin: 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: rgba(255, 255, 255, 70);
+            min-height: 20px;
+            border-radius: 3px;
+        }
+        QScrollBar::handle:vertical:hover {
+            background: rgba(255, 255, 255, 130);
+        }
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
+        QScrollBar::add-page:vertical,
+        QScrollBar::sub-page:vertical {
+            background: transparent;
+        }
+        QScrollBar:horizontal {
+            background: transparent;
+            height: 6px;
+            margin: 0px;
+        }
+        QScrollBar::handle:horizontal {
+            background: rgba(255, 255, 255, 70);
+            min-width: 20px;
+            border-radius: 3px;
+        }
+        QScrollBar::handle:horizontal:hover {
+            background: rgba(255, 255, 255, 130);
+        }
+        QScrollBar::add-line:horizontal,
+        QScrollBar::sub-line:horizontal {
+            width: 0px;
+        }
+        QScrollBar::add-page:horizontal,
+        QScrollBar::sub-page:horizontal {
+            background: transparent;
+        }
+    """)
 
     window = MainWindow()
     window.show()

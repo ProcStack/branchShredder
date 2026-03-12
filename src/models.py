@@ -77,5 +77,6 @@ class ProjectSettings:
         self.grid_major = 180
         self.create_node_on_empty_drop = True
         self.socket_size = 14
+        self.font_size = 10
         self.show_ai_bar = False
         self.project_system_prompt = ""

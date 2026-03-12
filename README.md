@@ -1,4 +1,4 @@
-# Branch Shredder v0.2
+# Branch Shredder v0.3
 ### Visualize branching narratives with ease
 #### Built by Kevin Edzenga; gh - ProcStack
 <br/> 
@@ -12,7 +12,7 @@ Have any key art you want to help distinguish different characters or story arc 
 <br/>Add the images from your computer and you can then select an image to display around the node as a "background image"
 <br/><br/>
 
-![Branch Shredder v0.2 UI](_show/branchShredder_v02.webp)
+![Branch Shredder v0.3 UI](_show/branchShredder_v03.webp)
 
 ### Functionality -
  - Move Nodes -- Left Click + Drag Node
@@ -52,18 +52,18 @@ pip install -r requirements_localLLM.txt
 
 To run:
 ```
-python src/main.py
+python branchShredder.py
 ```
 
 ---
 
-![Branch Shredder AI Assistant - Nova](_show/branchShredder_v02_novaAssist.webp)
+![Branch Shredder AI Assistant - Nova](_show/branchShredder_v03_novaAssist.webp)
 
 ### AI Assistant `Nova` -
 
-I've included an AI assist I'm calling `Nova` to help with suggestions, finding continuity issues, and make new nodes with written content.
+I've included an AI assist I named `Nova` to help with suggestions, finding continuity issues, and to make new nodes with written content.
 
-I made the chioce to add AI since this does seem like a type of things that might help writer's block.  
+I made the chioce to add AI since this does seem like a type of thing that could help writer's block.  
 So I figured having the option to use an AI in the interface might be helpful.
 
 <br/>However, it's up to you to turn on the AI Prompt in your Project Settings.
@@ -71,9 +71,9 @@ So I figured having the option to use an AI in the interface might be helpful.
 <br/>The AI Prompt bar will appear at the bottom of your window.
 
 You have API access to OpenAI's ChatGPT, Anthropic's Claude, X's Groq, Google's Gemini & Meta's Llama.
-<br/>Of these, Llama can be downloaded an ran on your computer locally.
-<br/>This means none of your story is sent to some server or trained on your writing, when using Llama.
-<br/>So if you're weary of using ai to help you write, while it trains off your work, you have an option to avoid that.
+<br/>Of these, Llama can be downloaded and ran on your computer locally.
+<br/>This means none of your story is sent to some server or used to train llms, when using Llama.
+<br/>So if you're weary of using ai to help you write, because it trains off your work, you have an option to avoid that.
 
 If you choose to use Llama, it will automatically download for you once you select the model you want to download and use.
 
@@ -111,7 +111,8 @@ In **Project Settings > AI Assistant > Project AI Context**, describe your story
 
 ### Local LLM Support (no API key required) -
 
-You can run Llama models entirely offline using `llama-cpp-python`. Models are downloaded from Hugging Face Hub and stored in the `models/` folder.
+You can run Llama models entirely offline.
+Models are downloaded from Hugging Face Hub and stored in the `models` folder.
 
 #### 1. Install local LLM dependencies
 
@@ -119,7 +120,7 @@ You can run Llama models entirely offline using `llama-cpp-python`. Models are d
 pip install -r requirements_localLLM.txt
 ```
 
-> **Windows note:** `llama-cpp-python` compiles native C++ code. If you don't have Visual C++ Build Tools installed, use a pre-built CPU wheel instead:
+> **Windows note:** `llama-cpp-python` is used to compile native C++ code. If you don't have Visual C++ Build Tools installed, use a pre-built CPU wheel instead:
 > ```
 > pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 > ```

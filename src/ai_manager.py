@@ -13,7 +13,6 @@ Local inference:
     the huggingface_hub package.  Inference runs via llama-cpp-python.
 """
 
-import os
 import sys
 import threading
 from pathlib import Path

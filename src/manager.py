@@ -36,7 +36,7 @@ class ProjectManager:
         return node_dict
 
     def serialize_scene(self, scene):
-        from graph_items import BaseNodeItem, ConnectionItem
+        from .graph_items import BaseNodeItem, ConnectionItem
         nodes = []
         connections = []
         
@@ -86,6 +86,7 @@ class ProjectManager:
                 "grid_major": settings.grid_major,
                 "create_node_on_empty_drop": settings.create_node_on_empty_drop,
                 "socket_size": settings.socket_size,
+                "font_size": settings.font_size,
                 "show_ai_bar": settings.show_ai_bar,
                 "project_system_prompt": settings.project_system_prompt
             },
@@ -118,6 +119,7 @@ class ProjectManager:
         settings.grid_major = data["settings"].get("grid_major", 180)
         settings.create_node_on_empty_drop = data["settings"].get("create_node_on_empty_drop", True)
         settings.socket_size = data["settings"].get("socket_size", 14)
+        settings.font_size = data["settings"].get("font_size", 10)
         settings.show_ai_bar = data["settings"].get("show_ai_bar", False)
         settings.project_system_prompt = data["settings"].get("project_system_prompt", "")
         

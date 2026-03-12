@@ -143,7 +143,7 @@ class BaseNodeItem(QGraphicsRectItem):
 
     def resize_for_type(self):
         """Resize the rect to the canonical size for the current NodeType."""
-        from models import NODE_SIZES, NodeType
+        from .models import NODE_SIZES, NodeType
         et = self.node_data.event_type
         w, h = NODE_SIZES.get(et, (150, 80))
         self.setRect(0, 0, w, h)
@@ -170,13 +170,15 @@ class BaseNodeItem(QGraphicsRectItem):
         self.title_text.setPlainText(self.node_data.name)
 
         # Position title text based on node shape
-        from models import NodeType as _ET
+        from .models import NodeType as _ET
         from PyQt6.QtGui import QTextOption, QFont
         _r = self.rect()
         self.title_text.setTextWidth(_r.width() - 10)
 
         # Reset font to default before applying per-type overrides
         _base_font = QFont()
+        if self.project_settings:
+            _base_font.setPointSize(self.project_settings.font_size)
         self.title_text.setFont(_base_font)
 
         if self.node_data.event_type == _ET.CHARACTER:
@@ -240,7 +242,7 @@ class BaseNodeItem(QGraphicsRectItem):
             self.bg_image_item = None
 
     def _update_actions_text(self):
-        from models import NodeType as _ET
+        from .models import NodeType as _ET
         if not hasattr(self, '_actions_text_item'):
             self._actions_text_item = None
 
@@ -261,9 +263,10 @@ class BaseNodeItem(QGraphicsRectItem):
         if not self._actions_text_item:
             self._actions_text_item = QGraphicsTextItem(self)
             self._actions_text_item.setZValue(10)
-            font = self._actions_text_item.font()
-            font.setPointSize(max(6, font.pointSize() - 1))
-            self._actions_text_item.setFont(font)
+        _afont = self._actions_text_item.font()
+        _base_pt = self.project_settings.font_size if self.project_settings else _afont.pointSize()
+        _afont.setPointSize(max(6, _base_pt - 1))
+        self._actions_text_item.setFont(_afont)
         self._actions_text_item.setDefaultTextColor(
             getattr(self, '_node_text_color', QColor(Qt.GlobalColor.white))
         )
@@ -288,7 +291,7 @@ class BaseNodeItem(QGraphicsRectItem):
                 self.outputs[0].setPos(self.rect().width(), self.rect().height() / 2)
 
     def _update_character_labels(self):
-        from models import NodeType as _ET
+        from .models import NodeType as _ET
         # Remove previous character label items
         if not hasattr(self, '_char_label_items'):
             self._char_label_items = []
@@ -329,7 +332,8 @@ class BaseNodeItem(QGraphicsRectItem):
             lbl.setZValue(10)
             # Scale font slightly smaller than title
             font = lbl.font()
-            font.setPointSize(max(6, font.pointSize() - 1))
+            _base_pt = self.project_settings.font_size if self.project_settings else font.pointSize()
+            font.setPointSize(max(6, _base_pt - 1))
             lbl.setFont(font)
             lbl.setPos(5, y)
             y += LINE_H
@@ -352,7 +356,7 @@ class BaseNodeItem(QGraphicsRectItem):
         return self.rect().adjusted(-2, -2, 2, 2)
 
     def shape(self):
-        from models import NodeType
+        from .models import NodeType
         r = self.rect()
         w, h = r.width(), r.height()
         path = QPainterPath()
@@ -376,7 +380,7 @@ class BaseNodeItem(QGraphicsRectItem):
         return path
 
     def paint(self, painter, option, widget=None):
-        from models import NodeType
+        from .models import NodeType
         r = self.rect()
         w, h = r.width(), r.height()
         et = self.node_data.event_type
@@ -445,7 +449,7 @@ class BaseNodeItem(QGraphicsRectItem):
         painter.drawRect(QRectF(0, 0, w, h))
 
     def _update_globals_labels(self):
-        from models import NodeType as _ET, NODE_SIZES
+        from .models import NodeType as _ET, NODE_SIZES
         if not hasattr(self, '_globals_label_items'):
             self._globals_label_items = []
         for lbl in self._globals_label_items:
@@ -463,7 +467,8 @@ class BaseNodeItem(QGraphicsRectItem):
             lbl.setDefaultTextColor(getattr(self, '_node_text_color', QColor(Qt.GlobalColor.white)))
             lbl.setZValue(10)
             font = lbl.font()
-            font.setPointSize(max(6, font.pointSize() - 1))
+            _base_pt = self.project_settings.font_size if self.project_settings else font.pointSize()
+            font.setPointSize(max(6, _base_pt - 1))
             lbl.setFont(font)
             lbl.setPos(5, y)
             y += LINE_H
@@ -488,7 +493,7 @@ class BaseNodeItem(QGraphicsRectItem):
         try:
             for item in sub.items():
                 if type(item).__name__ == 'BaseNodeItem':
-                    from models import NodeType as _ET
+                    from .models import NodeType as _ET
                     if item.node_data.event_type == _ET.END:
                         end_count += 1
                     characters.update(getattr(item.node_data, 'selected_characters', []))
@@ -528,7 +533,7 @@ class BaseNodeItem(QGraphicsRectItem):
         return seen if seen else [default_value]
 
     def create_sockets(self):
-        from models import NodeType
+        from .models import NodeType
         if not self.scene():
             return
             

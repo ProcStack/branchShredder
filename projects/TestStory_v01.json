@@ -13,14 +13,15 @@
             "Globals": "#1a1a2e",
             "SUBNETWORK": "#417505"
         },
-        "scale": 5.0,
+        "scale": 7.5,
         "bg_offset_x": 0,
-        "bg_offset_y": -60,
+        "bg_offset_y": -80,
         "show_grid": true,
         "grid_minor": 60,
-        "grid_major": 179,
+        "grid_major": 180,
         "create_node_on_empty_drop": true,
-        "socket_size": 17,
+        "socket_size": 20,
+        "font_size": 14,
         "show_ai_bar": true,
         "project_system_prompt": ""
     },
@@ -28,14 +29,14 @@
         "name": "Root",
         "nodes": [
             {
-                "id": "Frank Wins_2425205845792",
-                "name": "Frank Wins",
-                "event_type": "Event",
+                "id": "New Node_2623371680288",
+                "name": "New Node",
+                "event_type": "Note",
                 "pos": [
-                    1699.5026310542626,
-                    475.2204028798322
+                    -3803.5268226658377,
+                    -1305.391609869634
                 ],
-                "markdown": "# Frank Wins the Fight\n\nNobody saw it coming. *Nobody.*\n\n**Frank the Fish** \u2014 against all odds, against all logic, against the basic laws of terrestrial combat \u2014 lands the decisive blow. Jimmy stumbles backward, feathers askew, dignity thoroughly shattered.\n\nFrank says nothing. He doesn't need to. The gleam in his eye says everything.\n\nJimmy shakes his beak and limps off into the treeline, muttering something that sounds suspiciously like an excuse about the wind.\n\n---\n\n*What does Frank do with his unlikely victory? Does anyone witness this? Are the rules of this world now forever changed?*\n\n> **Frank:** *(just stares)*\n\n---\n\n**Leads to:** *(connect your next scene here)*",
+                "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
                 "globals_vars": {},
@@ -48,14 +49,14 @@
                 "subnetwork": null
             },
             {
-                "id": "Jimmy Wins_2425325969440",
-                "name": "Jimmy Wins",
-                "event_type": "Event",
+                "id": "New Node_2623371679520",
+                "name": "New Node",
+                "event_type": "Note",
                 "pos": [
-                    1699.5026310542626,
-                    371.2204028798322
+                    5099.759934952347,
+                    1520.6264096979323
                 ],
-                "markdown": "# Jimmy Wins the Fight\n\nThe dust settles. Feathers everywhere.\n\n**Jimmy the Crow** stands tall over the battlefield, ruffling his glossy black wings with unmistakable satisfaction. He lets out a single sharp *caw* \u2014 half victory cry, half taunt.\n\nFrank the Fish flops in the dirt, gasping, his scales catching the light one last time before he concedes defeat with a defeated blub.\n\n---\n\n*What does Jimmy do next? Does he take the prize? Offer mercy? Fly away without a word?*\n\n> **Jimmy:** \"Should've stayed in the water, Frank.\"\n\n---\n\n**Leads to:** *(connect your next scene here)*",
+                "markdown": "",
                 "stage_notes": "",
                 "selected_characters": [],
                 "globals_vars": {},
@@ -280,8 +281,8 @@
                 "name": "Jimmy",
                 "event_type": "Character",
                 "pos": [
-                    1463.993697433457,
-                    -132.89278387768118
+                    1515.974670533487,
+                    -51.7023626122204
                 ],
                 "markdown": "Jimmy is a smarmy crow",
                 "stage_notes": "",
@@ -300,8 +301,8 @@
                 "name": "Frank",
                 "event_type": "Character",
                 "pos": [
-                    1945.3892417501884,
-                    -130.41262776037655
+                    2042.8092773261196,
+                    -48.98461863188434
                 ],
                 "markdown": "Frank is a middle aged fish",
                 "stage_notes": "Lives in a swamp",
@@ -346,8 +347,7 @@
                 "markdown": "Frank sees a ragged boat in the distance.\nHe ventures over to see what treasure chests are aboard the boat first, before checking for clues.\n\nThe boat sits stuck in dry mud of a once flowing river,\nIt's sails hanging on by a thread,\nThe ship has seen better days.\n\nBut maybe there will be something left behind by Jimmy's murderer",
                 "stage_notes": "",
                 "selected_characters": [
-                    "Frank",
-                    "Jimmy"
+                    "Frank"
                 ],
                 "globals_vars": {},
                 "variable_name": "",
@@ -779,8 +779,8 @@
                 "name": "Globals",
                 "event_type": "Globals",
                 "pos": [
-                    -645.6664670458244,
-                    -313.5861205094994
+                    -579.5995120224213,
+                    -119.47045693626612
                 ],
                 "markdown": "",
                 "stage_notes": "",
@@ -816,65 +816,9 @@
                 "show_bg": false,
                 "is_subnetwork": false,
                 "subnetwork": null
-            },
-            {
-                "id": "Leaving the Boat_2020527953552",
-                "name": "Leaving the Boat",
-                "event_type": "Event",
-                "pos": [
-                    880.6308916103065,
-                    -233.94170945669006
-                ],
-                "markdown": "## Leaving the Boat\n\nFrank climbs back over the rail and drops down onto the cracked mud of the riverbed. The boat groans behind him \u2014 a slow, structural complaint, like an old man shifting in his sleep. He doesn't look back.\n\nHe turns his collar up against nothing in particular. The air is still. No wind. No water. Just the flat, pale sky and the sound of his own boots on earth that used to be a river bottom.\n\nHe takes stock.\n\nIn his pockets: a tarnished pocket watch stopped at 3:17. A brass key on a strip of rawhide, etched with a symbol he doesn't recognise. A coil of rope knotted in a way that wasn't meant for sailing. Loose journal pages \u2014 confessional, half-coherent, damning. A hand-drawn map with an X and two words: *The drop.* A woman's ring, dented and too light. A photograph of two men grinning beside a river that no longer exists.\n\nAnd the name *Jimmy*, which at this point is less a name and more a wound.\n\nThe map puts whatever he's looking for upstream. Not far \u2014 the scale is rough, but Frank's spent enough years reading bad directions to estimate. A few miles on foot, maybe less. Whatever the river used to carry through here, it carried it from somewhere. And somewhere, out there in the dry and the dust, the truth of what happened to Jimmy is still sitting where it was left.\n\nFrank looks at the horizon. Flat. Bleached. Patient.\n\nHe starts walking.",
-                "stage_notes": "",
-                "selected_characters": [],
-                "globals_vars": {},
-                "variable_name": "",
-                "variable_op": "Add",
-                "variable_delta": 0.0,
-                "image_path": null,
-                "show_bg": false,
-                "is_subnetwork": false,
-                "subnetwork": null
-            },
-            {
-                "id": "Leaving the Boat \u2014 No Second Chest_2020527955520",
-                "name": "Leaving the Boat \u2014 No Second Chest",
-                "event_type": "Event",
-                "pos": [
-                    877.955751444287,
-                    -83.85809478972854
-                ],
-                "markdown": "## Leaving the Boat *(Path: Second Chest Missed)*\n\nFrank climbs back over the rail and drops down onto the cracked mud of the riverbed. The boat shifts almost imperceptibly behind him \u2014 wood and rust settling, or something else. He doesn't linger to find out.\n\nHe has less than he might have. Maybe less than he *should* have \u2014 there was a bench near the stern he didn't look under, a strongbox he half-noticed and half-dismissed. It's the kind of thing you tell yourself you'll circle back to and then don't. Maybe it was nothing.\n\nMaybe.\n\nIn his pockets: a pocket watch stopped at 3:17, initials on the back he can't quite read. Loose journal pages full of guilt and arithmetic \u2014 quantities, pickup points, forty-seven tally marks gouged into a cabin wall. A word circled twice on a ruined scrap of paper: *Upstream.* A razor that was cared for too long by someone who had reasons to care for it. A photograph of two men he can put faces to now, but only one name.\n\n*Jimmy.*\n\nHe doesn't have the map. He doesn't have the brass key. He knows there's something upstream \u2014 the cabin made that much plain \u2014 but he doesn't know exactly where to look, and he doesn't have the thing that might unlock it when he gets there.\n\nFrank stands at the edge of where the riverbank used to be and looks out at the flat, featureless stretch of dried earth ahead of him.\n\nHe's done more with less.\n\nHe starts walking.",
-                "stage_notes": "",
-                "selected_characters": [],
-                "globals_vars": {},
-                "variable_name": "",
-                "variable_op": "Add",
-                "variable_delta": 0.0,
-                "image_path": null,
-                "show_bg": false,
-                "is_subnetwork": false,
-                "subnetwork": null
             }
         ],
         "connections": [
-            {
-                "start_id": "New Node_2805735155136",
-                "start_idx": 0,
-                "end_id": "Frank Wins_2425205845792",
-                "end_idx": 0,
-                "line_style": 1,
-                "line_color": "#646464"
-            },
-            {
-                "start_id": "New Node_2805735155136",
-                "start_idx": 0,
-                "end_id": "Jimmy Wins_2425325969440",
-                "end_idx": 0,
-                "line_style": 1,
-                "line_color": "#646464"
-            },
             {
                 "start_id": "_1772007143024",
                 "start_idx": 0,
@@ -1095,30 +1039,6 @@
                 "start_id": "_2668249724336",
                 "start_idx": 0,
                 "end_id": "New Node_2668249724144",
-                "end_idx": 0,
-                "line_style": 1,
-                "line_color": "#646464"
-            },
-            {
-                "start_id": "The Cabin_1772006897072",
-                "start_idx": 0,
-                "end_id": "Leaving the Boat_2020527953552",
-                "end_idx": 0,
-                "line_style": 1,
-                "line_color": "#646464"
-            },
-            {
-                "start_id": "The Cabin_1772006897072",
-                "start_idx": 0,
-                "end_id": "Leaving the Boat \u2014 No Second Chest_2020527955520",
-                "end_idx": 0,
-                "line_style": 1,
-                "line_color": "#646464"
-            },
-            {
-                "start_id": "The Second Chest_1771862206032",
-                "start_idx": 0,
-                "end_id": "Leaving the Boat_2020527953552",
                 "end_idx": 0,
                 "line_style": 1,
                 "line_color": "#646464"
