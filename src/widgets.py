@@ -534,8 +534,8 @@ class NodeInspector(QWidget):
         self.layout.addWidget(self.zone_label)
         self.layout.addWidget(self.zone_edit)
 
-        # --- Game Scene Actions (hidden for Dialogue/Event) ---
-        self.actions_label = QLabel("Game Scene Actions:")
+        # --- Scene Actions (hidden for Dialogue/Event) ---
+        self.actions_label = QLabel("Scene Actions:")
         self.actions_edit = QTextEdit()
         self.actions_edit.textChanged.connect(self.update_node_actions)
         self.layout.addWidget(self.actions_label)
@@ -733,7 +733,7 @@ class NodeInspector(QWidget):
             NodeType.NOTE: "Note:",
             NodeType.INFO: "Info:",
         }
-        self.actions_label.setText(label_map.get(event_type, "Game Scene Actions:"))
+        self.actions_label.setText(label_map.get(event_type, "Scene Actions:"))
 
     def set_available_characters(self, all_names):
         """Populate the character multiselect list with all known character names."""
@@ -1135,6 +1135,10 @@ class AIPromptBar(QWidget):
         self._signals.response.connect(self._on_response)
         self._signals.error.connect(self._on_error)
 
+        # Conversation history for "Send Reply"
+        self._last_prompt: str = ""
+        self._last_raw_response: str = ""
+
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(4, 4, 4, 4)
         main_layout.setSpacing(6)
@@ -1179,9 +1183,16 @@ class AIPromptBar(QWidget):
         self.prompt_input.setPlaceholderText("Ask Nova something about your story…")
         ctrl_layout.addWidget(self.prompt_input, 1)
 
-        self.send_btn = QPushButton("▶  Send")
+        send_row = QHBoxLayout()
+        self.send_btn = QPushButton("▶  Send New")
         self.send_btn.clicked.connect(self.send_prompt)
-        ctrl_layout.addWidget(self.send_btn)
+        send_row.addWidget(self.send_btn)
+        self.reply_btn = QPushButton("↩  Reply")
+        self.reply_btn.setEnabled(False)
+        self.reply_btn.setToolTip("Append Nova's last response and your new message to the previous prompt")
+        self.reply_btn.clicked.connect(self.send_reply)
+        send_row.addWidget(self.reply_btn)
+        ctrl_layout.addLayout(send_row)
 
         main_layout.addWidget(ctrl_group)
 
@@ -1220,28 +1231,29 @@ class AIPromptBar(QWidget):
         if self.model_combo.currentData() == "llama:__download__":
             self._open_download_dialog()
 
-    def send_prompt(self):
-        model_id = self.model_combo.currentData()
-        if not model_id or model_id == "llama:__download__":
-            self._open_download_dialog()
-            return
+    def _build_full_prompt(self) -> str:
+        """Build the outgoing prompt string, optionally prepending node context."""
         prompt = self.prompt_input.toPlainText().strip()
         if not prompt:
-            return
-
-        # Optionally prepend selected node context
+            return ""
         if self.include_nodes_check.isChecked():
             ctx = self._build_node_context()
             if ctx:
                 prompt = ctx + "\n\n--- User Prompt ---\n" + prompt
+        return prompt
 
+    def _dispatch_query(self, prompt: str) -> None:
+        """Send *prompt* to the AI on a background thread and update UI state."""
+        model_id = self.model_combo.currentData()
         self.send_btn.setEnabled(False)
+        self.reply_btn.setEnabled(False)
         self.output_text.setHtml(
             f"<html><body style='{MarkdownRenderer.STYLE}'>"
             "<p style='color:#888888;'>Nova is thinking\u2026</p>"
             "</body></html>"
         )
         project_sys = getattr(self.settings, "project_system_prompt", "")
+        self._last_prompt = prompt
         self.ai_manager.query(
             model_id,
             prompt,
@@ -1249,6 +1261,36 @@ class AIPromptBar(QWidget):
             callback=self._signals.response.emit,
             error_callback=self._signals.error.emit,
         )
+
+    def send_prompt(self):
+        model_id = self.model_combo.currentData()
+        if not model_id or model_id == "llama:__download__":
+            self._open_download_dialog()
+            return
+        prompt = self._build_full_prompt()
+        if not prompt:
+            return
+        self._dispatch_query(prompt)
+
+    def send_reply(self):
+        """Continue the conversation by appending Nova's last reply and the new
+        user message to the original prompt, then sending it as one request."""
+        model_id = self.model_combo.currentData()
+        if not model_id or model_id == "llama:__download__":
+            self._open_download_dialog()
+            return
+        new_message = self.prompt_input.toPlainText().strip()
+        if not new_message:
+            return
+        # Build threaded history: prior prompt → Nova's response → new user message
+        prompt = (
+            self._last_prompt
+            + "\n\n--- Nova's Response ---\n"
+            + self._last_raw_response
+            + "\n\n--- User Follow-up ---\n"
+            + new_message
+        )
+        self._dispatch_query(prompt)
 
     def _open_download_dialog(self):
         main_win = self.window()
@@ -1315,6 +1357,34 @@ class AIPromptBar(QWidget):
     # AI command processing
     # ------------------------------------------------------------------
 
+    def _find_node_by_path(self, scene, path_str: str):
+        """Find a BaseNodeItem by matching path_str against compute_paths() results.
+
+        Matching priority:
+        1. Exact path match  (e.g. "Start > Chapter1 > Scene2")
+        2. Path suffix match (e.g. "Scene2" matches "Start > Chapter1 > Scene2")
+        3. Node name equality
+        Returns None if no match is found.
+        """
+        from graph_items import BaseNodeItem
+        path_str = path_str.strip()
+        suffix_match = None
+        name_match = None
+        for item in scene.items():
+            if not isinstance(item, BaseNodeItem):
+                continue
+            paths = item.compute_paths()
+            if path_str in paths:
+                return item
+            if suffix_match is None:
+                for p in paths:
+                    if p.endswith(" > " + path_str):
+                        suffix_match = item
+                        break
+            if name_match is None and item.node_data.name == path_str:
+                name_match = item
+        return suffix_match or name_match
+
     def _process_commands(self, text: str) -> str:
         """
         Scan the AI response for registered command tags, execute each one,
@@ -1326,6 +1396,32 @@ class AIPromptBar(QWidget):
         __init__: {"tag_name": handler_method}.  Each handler receives
         (attrs: dict, inner_text: str) and must return an HTML string.
         """
+        # Pre-scan create_node tags to count how many times each ref node is
+        # used as an input, so _handle_create_node can apply Y-offsets only
+        # when the same ref node is shared by multiple new nodes.
+        self._create_node_ref_counts: dict = {}
+        self._create_node_usage_idx: dict = {}
+        scene = self._scene_getter() if self._scene_getter else None
+        if scene and "create_node" in self._command_handlers:
+            from graph_items import BaseNodeItem
+            cn_pre = re.compile(
+                r'<create_node([^>]*)>.*?</create_node>',
+                re.DOTALL | re.IGNORECASE,
+            )
+            selected_pre = [i for i in scene.selectedItems() if isinstance(i, BaseNodeItem)]
+            for m in cn_pre.finditer(text):
+                a: dict = {}
+                a.update(dict(re.findall(r'(\w+)="([^"]*)"', m.group(1))))
+                a.update(dict(re.findall(r"(\w+)='([^']*)'", m.group(1))))
+                node_path = a.get("nodePath")
+                if node_path:
+                    ref = self._find_node_by_path(scene, node_path)
+                else:
+                    ref = selected_pre[0] if selected_pre else None
+                if ref is not None:
+                    rid = id(ref)
+                    self._create_node_ref_counts[rid] = self._create_node_ref_counts.get(rid, 0) + 1
+
         for tag_name, handler in self._command_handlers.items():
             pattern = re.compile(
                 rf'<{re.escape(tag_name)}([^>]*)>(.*?)</{re.escape(tag_name)}>',
@@ -1341,12 +1437,20 @@ class AIPromptBar(QWidget):
 
     def _handle_create_node(self, attrs: dict, content: str) -> str:
         """Execute a <create_node> tag: create a node in the active graph scene
-        positioned to the right of the currently selected node and connected to
-        it.  Returns an HTML visual summary box to embed in the Nova output."""
+        positioned to the right of its input node and connected to it.
+
+        If the optional `nodePath` attribute is provided, the node whose
+        compute_paths() matches that path string is used as the input node;
+        otherwise the first currently-selected node is used (existing behaviour).
+
+        When multiple nodes share the same input node, each successive node is
+        placed one step lower in Y so they don't stack on top of each other.
+        Returns an HTML visual summary box to embed in the Nova output."""
         from graph_items import BaseNodeItem
 
         title = attrs.get("title", "Untitled")
         type_str = attrs.get("type", "NOTE").upper()
+        node_path = attrs.get("nodePath")  # optional: path string identifying the input node
 
         # Resolve NodeType by value (e.g. "EVENT") or by enum name (e.g. "event")
         node_type = NodeType.NOTE
@@ -1357,12 +1461,30 @@ class AIPromptBar(QWidget):
 
         scene = self._scene_getter() if self._scene_getter else None
         if scene:
+            from graph_items import BaseNodeItem
             selected = [i for i in scene.selectedItems() if isinstance(i, BaseNodeItem)]
-            if selected:
-                ref = selected[0]
+
+            # Resolve the input (reference) node
+            ref = None
+            if node_path:
+                ref = self._find_node_by_path(scene, node_path)
+            if ref is None:
+                ref = selected[0] if selected else None
+
+            if ref is not None:
                 ref_rect = ref.boundingRect()
                 new_x = ref.pos().x() + ref_rect.width() + 80
-                new_y = ref.pos().y()
+
+                # Apply a Y-offset only when this ref node is used as input for
+                # multiple new nodes in this response, so they don't overlap.
+                rid = id(ref)
+                total = self._create_node_ref_counts.get(rid, 1)
+                idx = self._create_node_usage_idx.get(rid, 0)
+                if total > 1:
+                    new_y = ref.pos().y() + idx * (ref_rect.height() + 20)
+                else:
+                    new_y = ref.pos().y()
+                self._create_node_usage_idx[rid] = idx + 1
             else:
                 new_x, new_y = 300, 300
 
@@ -1370,21 +1492,23 @@ class AIPromptBar(QWidget):
             new_data.markdown_content = content.strip()
             new_node = scene.add_node(new_x, new_y, new_data)
 
-            if selected and new_node.inputs and selected[0].outputs:
-                scene.create_connection(selected[0].outputs[0], new_node.inputs[0])
+            if ref is not None and new_node.inputs and ref.outputs:
+                scene.create_connection(ref.outputs[0], new_node.inputs[0])
 
         return (
-            f'\n<div style="border:1px solid #4a90e2; border-radius:6px; '
-            f'padding:6px 10px; margin:6px 0; background:#1e2a3a; color:#9ec4f5;">'
+            f'<div style="border:1px solid #4a90e2; border-radius:6px; '
+            f'padding:2px 8px; margin:1px 0; background:#1e2a3a; color:#9ec4f5;">'
             f'&#10022; Node Created: <b>{title}</b>&nbsp;'
             f'<span style="color:#888888; font-size:9pt;">({node_type.value})</span>'
-            f'</div>\n'
+            f'</div>'
         )
 
     def _on_response(self, text: str):
+        self._last_raw_response = text
         processed = self._process_commands(text)
         self.output_text.setHtml(MarkdownRenderer.to_styled_html(processed))
         self.send_btn.setEnabled(True)
+        self.reply_btn.setEnabled(True)
 
     def _on_error(self, msg: str):
         self.output_text.setHtml(
@@ -1393,3 +1517,4 @@ class AIPromptBar(QWidget):
             "</body></html>"
         )
         self.send_btn.setEnabled(True)
+        self.reply_btn.setEnabled(bool(self._last_raw_response))

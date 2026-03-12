@@ -28,6 +28,46 @@
         "name": "Root",
         "nodes": [
             {
+                "id": "Frank Wins_2425205845792",
+                "name": "Frank Wins",
+                "event_type": "Event",
+                "pos": [
+                    1699.5026310542626,
+                    475.2204028798322
+                ],
+                "markdown": "# Frank Wins the Fight\n\nNobody saw it coming. *Nobody.*\n\n**Frank the Fish** \u2014 against all odds, against all logic, against the basic laws of terrestrial combat \u2014 lands the decisive blow. Jimmy stumbles backward, feathers askew, dignity thoroughly shattered.\n\nFrank says nothing. He doesn't need to. The gleam in his eye says everything.\n\nJimmy shakes his beak and limps off into the treeline, muttering something that sounds suspiciously like an excuse about the wind.\n\n---\n\n*What does Frank do with his unlikely victory? Does anyone witness this? Are the rules of this world now forever changed?*\n\n> **Frank:** *(just stares)*\n\n---\n\n**Leads to:** *(connect your next scene here)*",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
+                "id": "Jimmy Wins_2425325969440",
+                "name": "Jimmy Wins",
+                "event_type": "Event",
+                "pos": [
+                    1699.5026310542626,
+                    371.2204028798322
+                ],
+                "markdown": "# Jimmy Wins the Fight\n\nThe dust settles. Feathers everywhere.\n\n**Jimmy the Crow** stands tall over the battlefield, ruffling his glossy black wings with unmistakable satisfaction. He lets out a single sharp *caw* \u2014 half victory cry, half taunt.\n\nFrank the Fish flops in the dirt, gasping, his scales catching the light one last time before he concedes defeat with a defeated blub.\n\n---\n\n*What does Jimmy do next? Does he take the prize? Offer mercy? Fly away without a word?*\n\n> **Jimmy:** \"Should've stayed in the water, Frank.\"\n\n---\n\n**Leads to:** *(connect your next scene here)*",
+                "stage_notes": "",
+                "selected_characters": [],
+                "globals_vars": {},
+                "variable_name": "",
+                "variable_op": "Add",
+                "variable_delta": 0.0,
+                "image_path": null,
+                "show_bg": false,
+                "is_subnetwork": false,
+                "subnetwork": null
+            },
+            {
                 "id": "_1772007143024",
                 "name": "",
                 "event_type": "Dot",
@@ -112,8 +152,8 @@
                 "name": "Crazy Fight",
                 "event_type": "Event",
                 "pos": [
-                    1465.5026310542623,
-                    374.65921538076077
+                    1465.5026310542626,
+                    371.2204028798322
                 ],
                 "markdown": "# Tester Face McGee!\n##  Ohh yeahh!\n### Gettin that Markdown!\n#### Run it!\n\n - **Do lists work?**\n - *Huzzah! They do!*\n - Well, __how bout that__?\n\n---\n\n[Launchable Links](https://link.ext)\n\n![Frank the Fish](projects/media/fish.jpg)\n\n",
                 "stage_notes": "",
@@ -123,8 +163,8 @@
                 ],
                 "globals_vars": {},
                 "variable_name": "",
-                "variable_op": "Add",
-                "variable_delta": 0.0,
+                "variable_op": "Subtract",
+                "variable_delta": 1.0,
                 "image_path": null,
                 "show_bg": false,
                 "is_subnetwork": false,
@@ -243,7 +283,7 @@
                     1463.993697433457,
                     -132.89278387768118
                 ],
-                "markdown": "",
+                "markdown": "Jimmy is a smarmy crow",
                 "stage_notes": "",
                 "selected_characters": [],
                 "globals_vars": {},
@@ -263,7 +303,7 @@
                     1945.3892417501884,
                     -130.41262776037655
                 ],
-                "markdown": "# Tester Face McGee!\n##  Ohh yeahh!\n### Gettin that Markdown!\n#### Run it!\n\n - **Do lists work?**\n - *Huzzah! They do!*\n - Well, __how bout that__?\n\n---\n\n[Launchable Links](https://link.ext)\n\n![Frank the Fish](projects/media/fish.jpg)\n\n",
+                "markdown": "Frank is a middle aged fish",
                 "stage_notes": "Lives in a swamp",
                 "selected_characters": [],
                 "globals_vars": {},
@@ -281,7 +321,7 @@
                 "event_type": "Info",
                 "pos": [
                     -119.81528868845223,
-                    -73.53252366021397
+                    -74.53252366021397
                 ],
                 "markdown": "",
                 "stage_notes": "",
@@ -679,8 +719,8 @@
                 "name": "End",
                 "event_type": "End",
                 "pos": [
-                    1775.5470164507437,
-                    485.8258221341161
+                    1990.424641452601,
+                    541.9481971322589
                 ],
                 "markdown": "",
                 "stage_notes": "",
@@ -762,8 +802,8 @@
                 "name": "The First Chest",
                 "event_type": "Event",
                 "pos": [
-                    524.9120140564141,
-                    -510.8187166397203
+                    524.912014056414,
+                    -511.73177586619516
                 ],
                 "markdown": "## The First Chest\n\nThe chest sits wedged beneath a collapsed section of railing, its iron clasp rusted into a permanent scowl. Frank has to kick it twice before the lid groans open, exhaling a breath of stale, river-damp air.\n\nInside, nestled in a bed of mildewed cloth:\n\n- **A tarnished pocket watch** \u2014 its face cracked, the hands frozen at **3:17**. There are initials engraved on the back, but the corrosion makes them almost impossible to read. Almost. Frank tilts it toward the light. *R. D.* \u2014 or maybe *R. B.*? He pockets it.\n- **A coil of rope**, knotted in a way that looks deliberate \u2014 not sailor's knots, something else. Something practiced.\n- **A half-empty bottle of whiskey**, the label long since peeled away. The liquid inside has turned the color of weak tea.\n- **A folded piece of paper**, pressed flat against the bottom of the chest. The ink has bled and faded, but Frank can make out fragments \u2014 a list of some kind. Names? Locations? The water damage has stolen most of it, but one word survives intact near the bottom, circled twice:\n\n  ***\"Upstream.\"***\n\nFrank stares at the word for a long moment. The river is dry now. There is no upstream anymore.\n\nBut there *was*.",
                 "stage_notes": "",
@@ -819,6 +859,22 @@
             }
         ],
         "connections": [
+            {
+                "start_id": "New Node_2805735155136",
+                "start_idx": 0,
+                "end_id": "Frank Wins_2425205845792",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
+            {
+                "start_id": "New Node_2805735155136",
+                "start_idx": 0,
+                "end_id": "Jimmy Wins_2425325969440",
+                "end_idx": 0,
+                "line_style": 1,
+                "line_color": "#646464"
+            },
             {
                 "start_id": "_1772007143024",
                 "start_idx": 0,

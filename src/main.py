@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (QMainWindow, QGraphicsView, QGraphicsScene,
                              QSplitter, QSizePolicy, QRubberBand,
                              QProgressBar, QLabel)
 from PyQt6.QtCore import Qt, QPointF, QRect, QSize, QTimer
-from PyQt6.QtGui import QAction, QPainter, QColor, QPen
+from PyQt6.QtGui import QAction, QPainter, QColor, QPen, QPalette
 
 import os
 from models import NodeData, NodeType, ProjectSettings
@@ -501,14 +501,14 @@ class MainWindow(QMainWindow):
         self.v_splitter.setHandleWidth(5)
         self.v_splitter.setStyleSheet("""
             QSplitter::handle {
-                background: #353535;
+                background: #4a4a4a;
                 margin: 0px;
             }
             QSplitter::handle:hover {
-                background: #6a6a6a;
+                background: #787878;
             }
             QSplitter::handle:pressed {
-                background: #888888;
+                background: #999999;
             }
         """)
         self.setCentralWidget(self.v_splitter)
@@ -576,9 +576,9 @@ class MainWindow(QMainWindow):
         sb = self.statusBar()
         sb.setStyleSheet("""
             QStatusBar {
-                background: #252525;
+                background: #383838;
                 color: #aaaaaa;
-                border-top: 1px solid #3a3a3a;
+                border-top: 1px solid #4e4e4e;
                 font-size: 9pt;
             }
             QStatusBar::item { border: none; }
@@ -601,9 +601,9 @@ class MainWindow(QMainWindow):
         self._status_progress.setMaximumHeight(14)
         self._status_progress.setStyleSheet("""
             QProgressBar {
-                border: 1px solid #555555;
+                border: 1px solid #666666;
                 border-radius: 3px;
-                background: #333333;
+                background: #464646;
             }
             QProgressBar::chunk {
                 background: #5a9fd4;
@@ -720,8 +720,6 @@ class MainWindow(QMainWindow):
         }
 
         
-
-
         for action, shortcut in shortcuts.items():
             act = QAction(f"{action} -- {shortcut}", self)
             act.setEnabled(False)
@@ -739,11 +737,11 @@ class MainWindow(QMainWindow):
                 padding: 4px 8px;
             }
             QToolButton:hover {
-                background: #3a3a3a;
+                background: #505050;
                 border-radius: 4px;
             }
             QToolButton:pressed {
-                background: #2a2a2a;
+                background: #3e3e3e;
                 border-radius: 4px;
             }
         """)
@@ -1039,6 +1037,35 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
+
+    # Use Fusion style so the QPalette is respected uniformly across all controls.
+    app.setStyle("Fusion")
+
+    # Slightly-brighter dark palette for the GUI chrome.
+    # Content areas (graph canvas, text editors, AI output) keep their own
+    # explicit dark backgrounds and are not affected by these palette values.
+    _p = QPalette()
+    _p.setColor(QPalette.ColorRole.Window,          QColor("#404040"))  # panel / sidebar bg
+    _p.setColor(QPalette.ColorRole.WindowText,      QColor("#dddddd"))
+    _p.setColor(QPalette.ColorRole.Base,            QColor("#1e1e1e"))  # text-editor / list bg (kept dark)
+    _p.setColor(QPalette.ColorRole.AlternateBase,   QColor("#383838"))
+    _p.setColor(QPalette.ColorRole.ToolTipBase,     QColor("#363636"))
+    _p.setColor(QPalette.ColorRole.ToolTipText,     QColor("#dddddd"))
+    _p.setColor(QPalette.ColorRole.Text,            QColor("#dddddd"))
+    _p.setColor(QPalette.ColorRole.Button,          QColor("#383838"))  # button / header bg
+    _p.setColor(QPalette.ColorRole.ButtonText,      QColor("#dddddd"))
+    _p.setColor(QPalette.ColorRole.BrightText,      QColor("#ffffff"))
+    _p.setColor(QPalette.ColorRole.Link,            QColor("#5c9fd8"))
+    _p.setColor(QPalette.ColorRole.Highlight,       QColor("#2979cc"))
+    _p.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+    _p.setColor(QPalette.ColorRole.Light,           QColor("#5e5e5e"))
+    _p.setColor(QPalette.ColorRole.Midlight,        QColor("#545454"))
+    _p.setColor(QPalette.ColorRole.Mid,             QColor("#4a4a4a"))
+    _p.setColor(QPalette.ColorRole.Dark,            QColor("#2e2e2e"))
+    _p.setColor(QPalette.ColorRole.Shadow,          QColor("#1a1a1a"))
+    _p.setColor(QPalette.ColorRole.PlaceholderText, QColor("#666666"))
+    app.setPalette(_p)
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
