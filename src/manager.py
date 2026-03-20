@@ -1,6 +1,74 @@
 import json
 import os
 
+_APP_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_APP_SETTINGS_PATH = os.path.join(_APP_ROOT, "app_settings.json")
+_MAX_RECENT = 10
+
+
+class AppSettingsManager:
+    """Manages the application-level settings file at the project root.
+
+    The file is a general-purpose JSON store. Keys used so far:
+        recent_projects  – list of absolute paths (most recent first)
+    """
+
+    def __init__(self, path=None):
+        self.path = path or _APP_SETTINGS_PATH
+        self._data = {}
+        self.load()
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def load(self):
+        if os.path.exists(self.path):
+            try:
+                with open(self.path, 'r') as f:
+                    self._data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                self._data = {}
+        else:
+            self._data = {}
+
+    def save(self):
+        try:
+            with open(self.path, 'w') as f:
+                json.dump(self._data, f, indent=4)
+        except OSError:
+            pass
+
+    # ------------------------------------------------------------------
+    # Recent projects
+    # ------------------------------------------------------------------
+
+    @property
+    def recent_projects(self):
+        return list(self._data.get("recent_projects", []))
+
+    def add_recent(self, path):
+        path = os.path.normpath(path)
+        recent = self.recent_projects
+        if path in recent:
+            recent.remove(path)
+        recent.insert(0, path)
+        self._data["recent_projects"] = recent[:_MAX_RECENT]
+        self.save()
+
+    def remove_recent(self, path):
+        path = os.path.normpath(path)
+        recent = self.recent_projects
+        if path in recent:
+            recent.remove(path)
+            self._data["recent_projects"] = recent
+            self.save()
+
+    def clear_recent(self):
+        self._data["recent_projects"] = []
+        self.save()
+
+
 class ProjectManager:
     def __init__(self, root_path=None):
         self.root_path = root_path

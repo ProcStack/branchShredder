@@ -13,9 +13,10 @@ from .graph_items import BaseNodeItem, ConnectionItem, SocketItem
 from .widgets import NodeInspector, SettingsSidebar, StoryWritingBar, ConnectionInspector
 from .ai_widgets import AIPromptBar
 
-from .manager import ProjectManager
+from .manager import ProjectManager, AppSettingsManager
 from .ai_manager import AIManager
 from .markdown_renderer import MarkdownRenderer
+from .ws_client import BranchShredderWSClient, _MainThreadBridge
 
 scriptName = "branchShredder"
 scriptTitle = "Branch Shredder"
@@ -488,6 +489,7 @@ class MainWindow(QMainWindow):
     def __init__(self, autoBoot = True):
         super().__init__()
         self.project_manager = ProjectManager()
+        self.app_settings = AppSettingsManager()
 
         if autoBoot:
           self.boot()
@@ -570,6 +572,12 @@ class MainWindow(QMainWindow):
         self.create_toolbar()
         self._setup_status_bar()
 
+        # procMessenger WebSocket client
+        self._ws_bridge = _MainThreadBridge()
+        self._ws_bridge.start()
+        self._ws_client: BranchShredderWSClient | None = None
+        self._start_ws_client()
+
 
     # ------------------------------------------------------------------
     # Status bar helpers
@@ -627,7 +635,8 @@ class MainWindow(QMainWindow):
     def _set_download_active(self, msg: str):
         """Show a persistent download status with an indeterminate progress bar."""
         self._status_timer.stop()
-        self._status_label.setStyleSheet(f"color: {self._STATUS_COLORS[StatusMessageType.OPEN]}; padding: 0 4px;")
+        color = _STATUS_COLORS.get(StatusMessageType.OPEN, "#83c1ff")
+        self._status_label.setStyleSheet(f"color: {color}; padding: 0 4px;")
         self._status_label.setText(msg)
         self._status_progress.show()
 
@@ -637,6 +646,79 @@ class MainWindow(QMainWindow):
         is_error = msg.lower().startswith("download error")
         stype = StatusMessageType.ERROR if is_error else StatusMessageType.SUCCESS
         self.show_status(msg, 5000, stype)
+
+    # ------------------------------------------------------------------
+    # procMessenger WebSocket helpers
+    # ------------------------------------------------------------------
+
+    def _start_ws_client(self):
+        """Read .env and start (or restart) the WS client if enabled."""
+        env = self.ai_manager._env
+        enabled = env.get("PROC_MESSENGER_ENABLED", "false").lower() in ("1", "true", "yes")
+        if not enabled:
+            return
+
+        host = env.get("PROC_MESSENGER_HOST", "192.168.1.154")
+        port_str = env.get("PROC_MESSENGER_PORT", "9734")
+        client_name = env.get("PROC_MESSENGER_CLIENT_NAME", "branchShredder")
+        try:
+            port = int(port_str)
+        except ValueError:
+            port = 9734
+
+        # Stop any existing client first
+        self._stop_ws_client()
+
+        self._ws_client = BranchShredderWSClient(
+            host=host,
+            port=port,
+            client_name=client_name,
+            scene_getter=lambda: self.view.scene(),
+            settings_getter=lambda: self.settings,
+            ai_manager=self.ai_manager,
+            bridge=self._ws_bridge,
+            app_settings_getter=lambda: self.app_settings,
+            open_project_fn=self._open_recent,
+            new_project_fn=self.new_project,
+            save_project_fn=self._ws_save_project,
+            project_root=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        )
+        self._ws_client.start()
+        self.show_status(
+            f"procMessenger: connecting to {host}:{port}…",
+            4000,
+            StatusMessageType.INFO,
+        )
+
+    def _stop_ws_client(self):
+        if self._ws_client:
+            self._ws_client.stop()
+            self._ws_client = None
+
+    def _ws_save_project(self, path: str | None):
+        """Save helper called from the WebSocket thread via the Qt bridge.
+
+        If *path* is None the current project path is used (in-place save).
+        If the project has never been saved and no path is given this is a
+        no-op (the ws_client layer already validates the filename before
+        calling here).
+        """
+        if path:
+            self.project_manager.save_project_as(path, self.scene, self.settings)
+            self.app_settings.add_recent(path)
+            self._rebuild_recent_menu()
+            self.show_status(f"Saved: {os.path.basename(path)}")
+        elif self.project_manager and self.project_manager.current_project_path:
+            self.project_manager.save_project(self.scene, self.settings)
+            self.show_status(
+                f"Saved: {os.path.basename(self.project_manager.current_project_path)}"
+            )
+
+    def closeEvent(self, event):
+        self._stop_ws_client()
+        if hasattr(self, "_ws_bridge"):
+            self._ws_bridge.stop()
+        super().closeEvent(event)
 
     # ------------------------------------------------------------------
 
@@ -680,22 +762,30 @@ class MainWindow(QMainWindow):
     def create_menu(self):
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
+        file_menu.setStyleSheet("QMenu::separator { height: 6px; margin: 0px; }")
 
         new_act = QAction("&New Project", self)
         new_act.triggered.connect(self.new_project)
         file_menu.addAction(new_act)
 
+        file_menu.addSeparator()
+
         load_act = QAction("&Open Project", self)
         load_act.triggered.connect(self.load_project)
         file_menu.addAction(load_act)
 
-        save_act = QAction("&Save Project", self)
-        save_act.triggered.connect(self.save_project)
-        file_menu.addAction(save_act)
+        self.recent_menu = file_menu.addMenu("Open &Recent")
+        self._rebuild_recent_menu()
+
+        file_menu.addSeparator()
 
         save_as_act = QAction("&Save As...", self)
         save_as_act.triggered.connect(self.save_project_as)
         file_menu.addAction(save_as_act)
+
+        save_act = QAction("&Save Project", self)
+        save_act.triggered.connect(self.save_project)
+        file_menu.addAction(save_act)
 
         file_menu.addSeparator()
 
@@ -925,6 +1015,8 @@ class MainWindow(QMainWindow):
                 scene = self.view.scene()
                 if hasattr(scene, 'itemAddedOrRemoved'):
                     scene.itemAddedOrRemoved()
+                # Keep the story bar node name label in sync with renames
+                self.story_bar.node_name_lbl.setText(self._selected_item.node_data.name)
             except RuntimeError:
                 self._selected_item = None
 
@@ -1197,10 +1289,62 @@ class MainWindow(QMainWindow):
         self.ai_bar.setVisible(self.settings.show_ai_bar)
         self.show_status("New project created.")
         
+    # ------------------------------------------------------------------
+    # Recent projects helpers
+    # ------------------------------------------------------------------
+
+    def _rebuild_recent_menu(self):
+        self.recent_menu.clear()
+        recent = self.app_settings.recent_projects
+        if recent:
+            for path in recent:
+                act = QAction(os.path.basename(path), self)
+                act.setToolTip(path)
+                act.triggered.connect(lambda checked, p=path: self._open_recent(p))
+                self.recent_menu.addAction(act)
+        else:
+            empty_act = QAction("(no recent projects)", self)
+            empty_act.setEnabled(False)
+            self.recent_menu.addAction(empty_act)
+        self.recent_menu.addSeparator()
+        clear_act = QAction("Clear Recent List", self)
+        clear_act.triggered.connect(self._clear_recent)
+        self.recent_menu.addAction(clear_act)
+
+    def _open_recent(self, path):
+        if not os.path.exists(path):
+            QMessageBox.warning(self, "File Not Found", f"Project not found:\n{path}")
+            self.app_settings.remove_recent(path)
+            self._rebuild_recent_menu()
+            return
+        root_data = self.project_manager.load_project(path, self.settings)
+        new_scene = GraphScene(self.settings)
+        self.reconstruct_scene(new_scene, root_data)
+        self.view.setScene(new_scene)
+        self.scene = new_scene
+        self.settings_sidebar.refresh()
+        self.ai_bar.setVisible(self.settings.show_ai_bar)
+        app = QApplication.instance()
+        app_font = app.font()
+        app_font.setPointSize(self.settings.font_size)
+        app.setFont(app_font)
+        MarkdownRenderer.set_font_size(self.settings.font_size)
+        self.app_settings.add_recent(path)
+        self._rebuild_recent_menu()
+        self.show_status(f"Opened: {os.path.basename(path)}", type=StatusMessageType.OPEN)
+
+    def _clear_recent(self):
+        self.app_settings.clear_recent()
+        self._rebuild_recent_menu()
+
+    # ------------------------------------------------------------------
+
     def save_project_as(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save Project", "", "JSON Files (*.json)")
         if path:
             self.project_manager.save_project_as( path, self.scene, self.settings )
+            self.app_settings.add_recent(path)
+            self._rebuild_recent_menu()
             self.show_status(f"Saved: {os.path.basename(path)}")
     
     def save_project(self):
@@ -1227,6 +1371,8 @@ class MainWindow(QMainWindow):
             app_font.setPointSize(self.settings.font_size)
             app.setFont(app_font)
             MarkdownRenderer.set_font_size(self.settings.font_size)
+            self.app_settings.add_recent(path)
+            self._rebuild_recent_menu()
             self.show_status(f"Opened: {os.path.basename(path)}",  type=StatusMessageType.OPEN )
 
     def reconstruct_scene(self, scene, data):

@@ -241,6 +241,11 @@ class AIPromptBar(QWidget):
     def _reload_keys(self):
         self.ai_manager.reload_env()
         self.refresh_models()
+        # If the main window has a WS client, restart it so new host/port/enabled
+        # settings from .env take effect immediately.
+        main_win = self.window()
+        if hasattr(main_win, "_start_ws_client"):
+            main_win._start_ws_client()
 
     def _on_model_changed(self, _idx: int):
         if self.model_combo.currentData() == "llama:__download__":

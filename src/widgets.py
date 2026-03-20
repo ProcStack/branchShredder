@@ -57,7 +57,7 @@ class SettingsSidebar(QWidget):
             self.layout.addLayout(row)
 
         # Scale SpinBox
-        self.layout.addWidget(QLabel("BG Image Max Scale:"))
+        self.layout.addWidget(QLabel("Display Image Max Scale:"))
         self.scale_spin = QDoubleSpinBox()
         self.scale_spin.setRange(1.0, 10.0)
         self.scale_spin.setSingleStep(0.5)
@@ -65,9 +65,9 @@ class SettingsSidebar(QWidget):
         self.scale_spin.valueChanged.connect(self.update_scale)
         self.layout.addWidget(self.scale_spin)
 
-        # BG Image Offset
+        # Display Image Offset
         row_x = QHBoxLayout()
-        row_x.addWidget(QLabel("BG Image Offset X:"))
+        row_x.addWidget(QLabel("Display Image Offset X:"))
         self.offset_x_spin = QSpinBox()
         self.offset_x_spin.setRange(-1000, 1000)
         self.offset_x_spin.setValue(int(self.settings.bg_image_offset_x))
@@ -76,7 +76,7 @@ class SettingsSidebar(QWidget):
         self.layout.addLayout(row_x)
 
         row_y = QHBoxLayout()
-        row_y.addWidget(QLabel("BG Image Offset Y:"))
+        row_y.addWidget(QLabel("Display Image Offset Y:"))
         self.offset_y_spin = QSpinBox()
         self.offset_y_spin.setRange(-1000, 1000)
         self.offset_y_spin.setValue(int(self.settings.bg_image_offset_y))
@@ -231,7 +231,11 @@ class StoryWritingBar(QWidget):
         toolbar_layout = QHBoxLayout()
 
         # Editor title
-        editorText = QLabel("Content Editor; Markdown")
+        editorText = QLabel("Content Editor - ")
+        editorText.setStyleSheet("font-size: 18px;")
+
+        self.node_name_lbl = QLabel("")
+        self.node_name_lbl.setStyleSheet("color: #cccccc; font-size: 18px; font-style: italic;")
 
         spacerHeader = QWidget()
         spacerHeader.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -288,6 +292,7 @@ class StoryWritingBar(QWidget):
         self.btn_preview.clicked.connect(self._toggle_preview)
         
         toolbar_layout.addWidget(editorText)
+        toolbar_layout.addWidget(self.node_name_lbl)
         toolbar_layout.addWidget(spacerHeader)
         toolbar_layout.addWidget(self.btn_bold)
         toolbar_layout.addWidget(self.btn_italic)
@@ -363,10 +368,13 @@ class StoryWritingBar(QWidget):
         self.node = node_data
         if not node_data:
             self.setEnabled(False)
+            self.node_name_lbl.setText("")
             self.text_editor.clear()
             self.stage_notes.clear()
             self.char_list.clear()
             return
+
+        self.node_name_lbl.setText(node_data.name)
 
         self.setEnabled(True)
         self.text_editor.blockSignals(True)
@@ -465,7 +473,20 @@ class NodeInspector(QWidget):
         media_btns.addWidget(self.remove_media_btn)
         self.layout.addLayout(media_btns)
         
-        self.set_bg_btn = QPushButton("Set Background Image")
+        # ---- Display Image ----
+        self.layout.addWidget(QLabel("DISPLAY IMAGE"))
+        disp_img_row = QHBoxLayout()
+        self.display_image_edit = QLineEdit()
+        self.display_image_edit.setPlaceholderText("No display image set")
+        self.display_image_edit.textChanged.connect(self.update_display_image_path)
+        self.display_image_browse_btn = QPushButton("Browse")
+        self.display_image_browse_btn.setFixedWidth(60)
+        self.display_image_browse_btn.clicked.connect(self.browse_display_image)
+        disp_img_row.addWidget(self.display_image_edit)
+        disp_img_row.addWidget(self.display_image_browse_btn)
+        self.layout.addLayout(disp_img_row)
+
+        self.set_bg_btn = QPushButton("Set from Selected Media")
         self.set_bg_btn.clicked.connect(self.set_background_image)
         self.layout.addWidget(self.set_bg_btn)
 
@@ -595,6 +616,9 @@ class NodeInspector(QWidget):
         self.actions_edit.setPlainText(node_data.scene_actions)
         self.media_list.clear()
         self.media_list.addItems(node_data.media_paths)
+        self.display_image_edit.blockSignals(True)
+        self.display_image_edit.setText(node_data.image_path or "")
+        self.display_image_edit.blockSignals(False)
 
         # GLOBALS section
         self.globals_section.setVisible(is_globals)
@@ -699,11 +723,32 @@ class NodeInspector(QWidget):
             if self.node.media_paths is not None:
                 self.node.media_paths.remove(item.text())
 
+    def browse_display_image(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Display Image",
+            filter="Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp)"
+        )
+        if path and self.node:
+            self.node.image_path = path
+            self.node.show_bg_image = True
+            self.display_image_edit.blockSignals(True)
+            self.display_image_edit.setText(path)
+            self.display_image_edit.blockSignals(False)
+            self.nodeChanged.emit()
+
+    def update_display_image_path(self, text):
+        if self.node:
+            self.node.image_path = text if text else None
+            self.nodeChanged.emit()
+
     def set_background_image(self):
         if self.media_list.currentItem():
             path = self.media_list.currentItem().text()
             self.node.image_path = path
             self.node.show_bg_image = not self.node.show_bg_image
+            self.display_image_edit.blockSignals(True)
+            self.display_image_edit.setText(path)
+            self.display_image_edit.blockSignals(False)
             self.nodeChanged.emit()
 
     # ------------------------------------------------------------------
