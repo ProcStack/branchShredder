@@ -1,4 +1,4 @@
-# Branch Shredder v0.3
+# Branch Shredder v0.4
 ### Visualize branching narratives with ease
 #### Built by Kevin Edzenga; gh - ProcStack
 <br/> 
@@ -146,5 +146,17 @@ Available models include:
 
 
 Once downloaded the model will appear in the dropdown automatically. Models are cached in `models/` and only need to be downloaded once.
+
+
+---
+
+#### `procMessenger` Access
+I've implemented the webSocket protocol outlined in the [procMessenger Repo](https://github.com/ProcStack/procMessenger)
+
+You're given access to edit your nodes, access the LLM, and create new projects from your `procMessenger` android app
+
+Turn `branchShredder` into a story editor from where ever you want, yet stays local on your computer. *
+<br/>\* *If you use `Tailscale` runnin on your server computer,
+<br/>&nbsp;&nbsp;&nbsp;&nbsp; you can access your local network using VPN access for your phone to connect to while not at home.*
 
 <br/>
