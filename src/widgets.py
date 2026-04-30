@@ -402,8 +402,41 @@ class StoryWritingBar(QWidget):
         if self.node:
             self.node.stage_notes = self.stage_notes.toPlainText()
 
+
+def _collect_downstream_paths(node_item, visited=None, prefix=""):
+    """Recursively collect downstream path strings from node_item outward."""
+    if visited is None:
+        visited = frozenset()
+    if node_item in visited:
+        return []
+    visited = visited | {node_item}
+    results = []
+    nd = node_item.node_data
+    for sock_idx, sock in enumerate(node_item.outputs or []):
+        port_name = nd.output_ports.get(sock_idx, "Default")
+        for conn in sock.connections:
+            if conn.socket_end and conn.socket_end.node_item:
+                next_node = conn.socket_end.node_item
+                next_nd = next_node.node_data
+                if port_name != "Default":
+                    segment = f"{nd.name}; Output: {port_name} > {next_nd.name}"
+                else:
+                    segment = f"{nd.name} > {next_nd.name}"
+                if prefix:
+                    full = f"{prefix} > {next_nd.name}" if port_name == "Default" else f"{prefix}; Output: {port_name} > {next_nd.name}"
+                else:
+                    full = segment
+                sub = _collect_downstream_paths(next_node, visited, full)
+                if sub:
+                    results.extend(sub)
+                else:
+                    results.append(full)
+    return results
+
+
 class NodeInspector(QWidget):
     nodeChanged = pyqtSignal()
+    portsChanged = pyqtSignal()  # emitted when input/output ports are modified
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -438,6 +471,67 @@ class NodeInspector(QWidget):
         self.layout.addWidget(self.type_label)
         self.layout.addWidget(self.type_combo)
         
+        # ---- Connections (collapsible) ----
+        self.connections_toggle_btn = QPushButton("▶ Connections")
+        self.connections_toggle_btn.setCheckable(True)
+        self.connections_toggle_btn.setChecked(False)
+        self.connections_toggle_btn.setStyleSheet("text-align: left; padding: 2px 4px;")
+        self.connections_toggle_btn.clicked.connect(self._toggle_connections_section)
+        self.layout.addWidget(self.connections_toggle_btn)
+
+        self.connections_section = QWidget()
+        _cs = QVBoxLayout(self.connections_section)
+        _cs.setContentsMargins(0, 0, 0, 0)
+
+        # --- Inputs list ---
+        _cs.addWidget(QLabel("Inputs:"))
+        self.input_ports_list = QListWidget()
+        self.input_ports_list.setFixedHeight(80)
+        self.input_ports_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.input_ports_list.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        _cs.addWidget(self.input_ports_list)
+        _in_btn_row = QHBoxLayout()
+        self.input_add_btn = QPushButton("Add Input")
+        self.input_add_btn.clicked.connect(self.ports_add_input)
+        self.input_delete_btn = QPushButton("Delete")
+        self.input_delete_btn.clicked.connect(self.ports_delete_input)
+        self.input_rename_btn = QPushButton("Rename")
+        self.input_rename_btn.clicked.connect(self.ports_rename_input)
+        _in_btn_row.addWidget(self.input_add_btn)
+        _in_btn_row.addWidget(self.input_delete_btn)
+        _in_btn_row.addWidget(self.input_rename_btn)
+        _cs.addLayout(_in_btn_row)
+        self.input_path_btn = QPushButton("Traverse Upstream Path")
+        self.input_path_btn.clicked.connect(self.ports_traverse_upstream)
+        _cs.addWidget(self.input_path_btn)
+
+        # --- Outputs list ---
+        _cs.addWidget(QLabel("Outputs:"))
+        self.output_ports_list = QListWidget()
+        self.output_ports_list.setFixedHeight(80)
+        self.output_ports_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.output_ports_list.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        _cs.addWidget(self.output_ports_list)
+        _out_btn_row = QHBoxLayout()
+        self.output_add_btn = QPushButton("Add Output")
+        self.output_add_btn.clicked.connect(self.ports_add_output)
+        self.output_delete_btn = QPushButton("Delete")
+        self.output_delete_btn.clicked.connect(self.ports_delete_output)
+        self.output_rename_btn = QPushButton("Rename")
+        self.output_rename_btn.clicked.connect(self.ports_rename_output)
+        _out_btn_row.addWidget(self.output_add_btn)
+        _out_btn_row.addWidget(self.output_delete_btn)
+        _out_btn_row.addWidget(self.output_rename_btn)
+        _cs.addLayout(_out_btn_row)
+        self.output_path_btn = QPushButton("Traverse Downstream Path")
+        self.output_path_btn.clicked.connect(self.ports_traverse_downstream)
+        _cs.addWidget(self.output_path_btn)
+
+        self.connections_section.hide()
+        self.layout.addWidget(self.connections_section)
+
+
+        # --- Scene Location ---
         self.zone_label = QLabel("Location Zone:")
         self.zone_edit = QLineEdit()
         self.zone_edit.textChanged.connect(self.update_node_zone)
@@ -472,7 +566,7 @@ class NodeInspector(QWidget):
         media_btns.addWidget(self.add_media_btn)
         media_btns.addWidget(self.remove_media_btn)
         self.layout.addLayout(media_btns)
-        
+
         # ---- Display Image ----
         self.layout.addWidget(QLabel("DISPLAY IMAGE"))
         disp_img_row = QHBoxLayout()
@@ -651,6 +745,7 @@ class NodeInspector(QWidget):
         self.var_op_combo.blockSignals(False)
         self.var_delta_spin.blockSignals(False)
 
+        self._refresh_ports_lists()
         self._update_runtime_display()
 
     def _refresh_actions_label(self, event_type):
@@ -846,6 +941,151 @@ class NodeInspector(QWidget):
     def update_var_delta(self, value):
         if self.node:
             self.node.variable_delta = value
+
+    # ------------------------------------------------------------------
+    # Connections section toggle
+    # ------------------------------------------------------------------
+
+    def _toggle_connections_section(self, checked):
+        self.connections_toggle_btn.setText("▼ Connections" if checked else "▶ Connections")
+        self.connections_section.setVisible(checked)
+
+    def _refresh_ports_lists(self):
+        """Reload input_ports and output_ports lists from the current node."""
+        from PyQt6.QtWidgets import QListWidgetItem
+        self.input_ports_list.clear()
+        self.output_ports_list.clear()
+        if not self.node:
+            return
+        for idx in sorted(self.node.input_ports.keys()):
+            item = QListWidgetItem(self.node.input_ports[idx])
+            item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            self.input_ports_list.addItem(item)
+        for idx in sorted(self.node.output_ports.keys()):
+            item = QListWidgetItem(self.node.output_ports[idx])
+            item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            self.output_ports_list.addItem(item)
+
+    # ------------------------------------------------------------------
+    # Input port management
+    # ------------------------------------------------------------------
+
+    def ports_add_input(self):
+        if not self.node:
+            return
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "Add Input", "Input connection name:")
+        if ok and name.strip():
+            new_idx = max(self.node.input_ports.keys(), default=-1) + 1
+            self.node.input_ports[new_idx] = name.strip()
+            self._refresh_ports_lists()
+            self.portsChanged.emit()
+
+    def ports_delete_input(self):
+        if not self.node:
+            return
+        row = self.input_ports_list.currentRow()
+        if row < 0:
+            return
+        keys = sorted(self.node.input_ports.keys())
+        if len(keys) <= 1:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Cannot Delete", "A node must have at least one input port.")
+            return
+        del self.node.input_ports[keys[row]]
+        # Re-index to keep keys contiguous
+        new_ports = {i: v for i, v in enumerate(self.node.input_ports[k] for k in sorted(self.node.input_ports.keys()))}
+        self.node.input_ports = new_ports
+        self._refresh_ports_lists()
+        self.portsChanged.emit()
+
+    def ports_rename_input(self):
+        if not self.node:
+            return
+        row = self.input_ports_list.currentRow()
+        if row < 0:
+            return
+        keys = sorted(self.node.input_ports.keys())
+        key = keys[row]
+        from PyQt6.QtWidgets import QInputDialog
+        new_name, ok = QInputDialog.getText(self, "Rename Input",
+                                            "New name:", text=self.node.input_ports[key])
+        if ok and new_name.strip():
+            self.node.input_ports[key] = new_name.strip()
+            self._refresh_ports_lists()
+            self.portsChanged.emit()
+
+    def ports_traverse_upstream(self):
+        """Show the full upstream path from this node using the selected input port."""
+        if not self.node_item:
+            return
+        from PyQt6.QtWidgets import QMessageBox
+        paths = self.node_item.compute_paths()
+        if paths:
+            msg = "\n\n".join(paths)
+        else:
+            msg = "(no upstream path)"
+        QMessageBox.information(self, "Upstream Path", msg)
+
+    # ------------------------------------------------------------------
+    # Output port management
+    # ------------------------------------------------------------------
+
+    def ports_add_output(self):
+        if not self.node:
+            return
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "Add Output", "Output connection name:")
+        if ok and name.strip():
+            new_idx = max(self.node.output_ports.keys(), default=-1) + 1
+            self.node.output_ports[new_idx] = name.strip()
+            self._refresh_ports_lists()
+            self.portsChanged.emit()
+
+    def ports_delete_output(self):
+        if not self.node:
+            return
+        row = self.output_ports_list.currentRow()
+        if row < 0:
+            return
+        keys = sorted(self.node.output_ports.keys())
+        if len(keys) <= 1:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Cannot Delete", "A node must have at least one output port.")
+            return
+        del self.node.output_ports[keys[row]]
+        new_ports = {i: v for i, v in enumerate(self.node.output_ports[k] for k in sorted(self.node.output_ports.keys()))}
+        self.node.output_ports = new_ports
+        self._refresh_ports_lists()
+        self.portsChanged.emit()
+
+    def ports_rename_output(self):
+        if not self.node:
+            return
+        row = self.output_ports_list.currentRow()
+        if row < 0:
+            return
+        keys = sorted(self.node.output_ports.keys())
+        key = keys[row]
+        from PyQt6.QtWidgets import QInputDialog
+        new_name, ok = QInputDialog.getText(self, "Rename Output",
+                                            "New name:", text=self.node.output_ports[key])
+        if ok and new_name.strip():
+            self.node.output_ports[key] = new_name.strip()
+            self._refresh_ports_lists()
+            self.portsChanged.emit()
+
+    def ports_traverse_downstream(self):
+        """Show all downstream nodes reachable from this node's outputs."""
+        if not self.node_item:
+            return
+        from PyQt6.QtWidgets import QMessageBox
+        lines = _collect_downstream_paths(self.node_item)
+        if lines:
+            msg = "\n\n".join(lines)
+        else:
+            msg = "(no downstream connections)"
+        QMessageBox.information(self, "Downstream Path", msg)
 
     # ------------------------------------------------------------------
     # Runtime display

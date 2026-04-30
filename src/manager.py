@@ -97,6 +97,8 @@ class ProjectManager:
             "image_path": data.image_path,
             "show_bg": data.show_bg_image,
             "is_subnetwork": data.is_subnetwork,
+            "input_ports": {str(k): v for k, v in data.input_ports.items()},
+            "output_ports": {str(k): v for k, v in data.output_ports.items()},
             "subnetwork": None
         }
         if data.is_subnetwork and data.subnetwork_id:

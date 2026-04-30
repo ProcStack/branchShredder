@@ -53,6 +53,10 @@ class NodeData:
         self.variable_name = ""        # which variable this node affects
         self.variable_op = "Add"       # Set / Add / Subtract / Multiply
         self.variable_delta = 0.0      # the value to apply
+        # Named ports: dict of {index(int): name(str)}
+        # If only one port and name is "Default", the name is omitted from path display.
+        self.input_ports: dict = {0: "Default"}   # input connection ports
+        self.output_ports: dict = {0: "Default"}  # output connection ports
 
 class ProjectSettings:
     def __init__(self):

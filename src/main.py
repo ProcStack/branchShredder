@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QMainWindow, QGraphicsView, QGraphicsScene,
                              QApplication, QFileDialog,
                              QSplitter, QSizePolicy, QRubberBand,
                              QProgressBar, QLabel)
-from PyQt6.QtCore import Qt, QPointF, QRect, QSize, QTimer
+from PyQt6.QtCore import Qt, QPointF, QRect, QSize, QTimer, QUrl
 from PyQt6.QtGui import QAction, QPainter, QColor, QPen, QPalette
 
 import os
@@ -20,7 +20,7 @@ from .ws_client import BranchShredderWSClient, _MainThreadBridge
 
 scriptName = "branchShredder"
 scriptTitle = "Branch Shredder"
-scriptVersion = "0.3"
+scriptVersion = "0.4"
 
 class StatusMessageType:
     NONE = -1
@@ -146,6 +146,7 @@ class GraphView(QGraphicsView):
         self._drag_start_pos = None
         self._rubber_band = None
         self._rubber_band_origin = None
+        self.setAcceptDrops(True)
 
     def setScene(self, scene):
         old = self.scene()
@@ -413,10 +414,48 @@ class GraphView(QGraphicsView):
             diffX = event.pos().x() - self._last_mouse_pos.x()
             diffY = -event.pos().y() + self._last_mouse_pos.y()
             diff = diffX if abs(diffX) > abs(diffY) else diffY
-            factor = 1.001 ** -diff
+            factor = 1.001 ** diff
             self.scale(factor, factor)
             self._last_mouse_pos = event.pos()
         super().mouseMoveEvent(event)
+
+    _IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tiff', '.tif'}
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.isLocalFile():
+                    ext = os.path.splitext(url.toLocalFile())[1].lower()
+                    if ext in self._IMAGE_EXTENSIONS:
+                        event.acceptProposedAction()
+                        return
+        event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.isLocalFile():
+                    ext = os.path.splitext(url.toLocalFile())[1].lower()
+                    if ext in self._IMAGE_EXTENSIONS:
+                        event.acceptProposedAction()
+                        return
+        event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.isLocalFile():
+                    ext = os.path.splitext(url.toLocalFile())[1].lower()
+                    if ext in self._IMAGE_EXTENSIONS:
+                        image_path = url.toLocalFile()
+                        scene_pos = self.mapToScene(event.position().toPoint())
+                        node_data = NodeData(os.path.splitext(os.path.basename(image_path))[0])
+                        node_data.image_path = image_path
+                        node_data.show_bg_image = True
+                        self.scene().add_node(scene_pos.x(), scene_pos.y(), node_data)
+                        event.acceptProposedAction()
+                        return
+        event.ignore()
 
     def mouseDoubleClickEvent(self, event):
         item = self.itemAt(event.pos())
@@ -537,6 +576,7 @@ class MainWindow(QMainWindow):
         
         self.inspector = NodeInspector()
         self.inspector.nodeChanged.connect(self.on_node_changed)
+        self.inspector.portsChanged.connect(self.on_ports_changed)
         
         self.connection_inspector = ConnectionInspector()
         self.connection_inspector.hide()
@@ -1020,6 +1060,18 @@ class MainWindow(QMainWindow):
             except RuntimeError:
                 self._selected_item = None
 
+    def on_ports_changed(self):
+        """Called when the user adds/removes/renames a port in the inspector.
+        Recreates sockets on the selected node to match the new port configuration."""
+        if hasattr(self, '_selected_item') and self._selected_item:
+            try:
+                if self._selected_item.scene() is None:
+                    return
+                self._selected_item.create_sockets()
+                self._selected_item.update_appearance()
+            except RuntimeError:
+                pass
+
     def on_settings_changed(self):
         # Update all nodes in current scene
         for item in self.view.scene().items():
@@ -1393,6 +1445,11 @@ class MainWindow(QMainWindow):
             node.image_path = ndata["image_path"]
             node.show_bg_image = ndata["show_bg"]
             node.is_subnetwork = ndata["is_subnetwork"]
+            # Load named ports (keys stored as strings in JSON → convert back to int)
+            raw_in = ndata.get("input_ports", {"0": "Default"})
+            node.input_ports = {int(k): v for k, v in raw_in.items()}
+            raw_out = ndata.get("output_ports", {"0": "Default"})
+            node.output_ports = {int(k): v for k, v in raw_out.items()}
             
             # Subnetwork?
             if node.is_subnetwork and ndata["subnetwork"]:

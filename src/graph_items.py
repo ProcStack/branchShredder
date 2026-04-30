@@ -5,6 +5,10 @@ from PyQt6.QtGui import QPen, QBrush, QColor, QPixmap, QPainterPath, QPainterPat
 
 NODE_BAR_H = 20  # Title bar height for the SUBNETWORK mini-window shape
 
+# Font size (pt) for the port name labels drawn inside the node body.
+# Change this value manually to adjust how large the port names appear.
+PORT_LABEL_FONT_SIZE = 7
+
 # Fraction of the 0–3 RGB magnitude above which node text flips to black.
 # 0.66 → flip when R/255 + G/255 + B/255 ≥ 1.98  (i.e.  ~66 % brightness).
 _TEXT_CONTRAST_THRESHOLD = 0.63
@@ -26,25 +30,39 @@ def _text_color_for_bg(color_str: str) -> QColor:
 def _traverse_upstream(node_item, visited=None):
     """
     Recursively collect all paths from any root to node_item.
-    Returns a list of paths; each path is an ordered list of BaseNodeItem
-    from the topmost ancestor down to node_item.
+    Returns a list of paths; each path is an ordered list of tuples:
+        (BaseNodeItem, outgoing_port_name_or_None)
+    where outgoing_port_name_or_None is the OUTPUT port name on THAT node
+    leading to the NEXT node in the path (None for the final node in the path).
     """
     if visited is None:
         visited = frozenset()
     if node_item in visited:
-        return [[node_item]]  # cycle guard
+        return [[(node_item, None)]]  # cycle guard
     visited = visited | {node_item}
-    upstream = []
+    upstream = []  # list of (upstream_node_item, output_port_name_on_upstream_node)
     for sock in (node_item.inputs or []):
         for conn in sock.connections:
             if conn.socket_start and conn.socket_start.node_item:
-                upstream.append(conn.socket_start.node_item)
+                up_node = conn.socket_start.node_item
+                # Determine which output port this connection came from
+                out_port_name = None
+                if hasattr(up_node, 'outputs'):
+                    try:
+                        out_idx = up_node.outputs.index(conn.socket_start)
+                        nd = up_node.node_data
+                        out_port_name = nd.output_ports.get(out_idx, "Default")
+                    except (ValueError, AttributeError):
+                        out_port_name = "Default"
+                upstream.append((up_node, out_port_name))
     if not upstream:
-        return [[node_item]]
+        return [[(node_item, None)]]
     result = []
-    for up in upstream:
-        for path in _traverse_upstream(up, visited):
-            result.append(path + [node_item])
+    for up_node, port_name in upstream:
+        for path in _traverse_upstream(up_node, visited):
+            # Replace the last tuple's port name with the outgoing port name
+            new_path = path[:-1] + [(path[-1][0], port_name)] + [(node_item, None)]
+            result.append(new_path)
     return result
 
 
@@ -114,7 +132,26 @@ class SocketItem(QGraphicsRectItem):
         self.setRect(-half, -half, size, size)
 
     def scenePos(self):
-        return self.mapToScene(self.rect().center())
+        # Offset 4 pixels outward from the node edge so there's a gap between socket and node body
+        rect = self.rect()
+        center = rect.center()
+        local = self.mapToScene(center)
+        # Determine direction based on is_input and position relative to parent
+        parent = self.parentItem()
+        if parent:
+            node_rect = parent.rect()
+            node_cx = node_rect.x() + node_rect.width() / 2
+            # parent-local position of socket center
+            ploc = self.mapToParent(center)
+            if self.is_input:
+                # Input sockets are on the left edge — offset 4px further left
+                offset_x = -4
+            else:
+                # Output sockets are on the right edge — offset 4px further right
+                offset_x = 4
+            adjusted_parent = ploc + type(ploc)(offset_x, 0)
+            return parent.mapToScene(adjusted_parent)
+        return local
 
 class BaseNodeItem(QGraphicsRectItem):
     def __init__(self, node_data, x=0, y=0, project_settings=None):
@@ -218,6 +255,9 @@ class BaseNodeItem(QGraphicsRectItem):
         # --- GLOBALS variable labels ---
         self._update_globals_labels()
 
+        # --- Port name labels (inputs/outputs rendered inside node body) ---
+        self._update_port_labels()
+
         # Background image handle - scene-level item at Z=0 so it renders
         # behind all nodes (Z=1) without any extra iteration.
         if self.node_data.image_path and self.node_data.show_bg_image:
@@ -285,10 +325,7 @@ class BaseNodeItem(QGraphicsRectItem):
         current_rect = self.rect()
         if needed_h > current_rect.height():
             self.setRect(0, 0, current_rect.width(), needed_h)
-            if self.inputs:
-                self.inputs[0].setPos(0, self.rect().height() / 2)
-            if self.outputs and not self.node_data.is_subnetwork:
-                self.outputs[0].setPos(self.rect().width(), self.rect().height() / 2)
+            self._reposition_sockets()
 
     def _update_character_labels(self):
         from .models import NodeType as _ET
@@ -318,11 +355,7 @@ class BaseNodeItem(QGraphicsRectItem):
         current_rect = self.rect()
         if needed_h > current_rect.height():
             self.setRect(0, 0, current_rect.width(), needed_h)
-            # Reposition input socket to stay centred
-            if self.inputs:
-                self.inputs[0].setPos(0, self.rect().height() / 2)
-            if self.outputs and not self.node_data.is_subnetwork:
-                self.outputs[0].setPos(self.rect().width(), self.rect().height() / 2)
+            self._reposition_sockets()
 
         for name in chars:
             lbl = QGraphicsTextItem(f"  · {name}", self)
@@ -478,10 +511,111 @@ class BaseNodeItem(QGraphicsRectItem):
         current_rect = self.rect()
         if needed_h != current_rect.height():
             self.setRect(0, 0, current_rect.width(), needed_h)
-            if self.inputs:
-                self.inputs[0].setPos(0, needed_h / 2)
-            if self.outputs and not self.node_data.is_subnetwork:
-                self.outputs[0].setPos(self.rect().width(), needed_h / 2)
+            self._reposition_sockets()
+
+    def _update_port_labels(self):
+        """Render input and output port names as text rows at the bottom of the node body.
+
+        Port names that are all 'Default' are skipped entirely so plain nodes stay
+        compact.  When named ports exist the node height is grown to fit them and
+        sockets are repositioned accordingly.
+        """
+        from .models import NodeType as _ET, NODE_SIZES
+
+        # Clean up any previous port label items.
+        if not hasattr(self, '_port_label_items'):
+            self._port_label_items = []
+        for lbl in self._port_label_items:
+            if lbl.scene():
+                lbl.scene().removeItem(lbl)
+        self._port_label_items = []
+
+        # DOT and GLOBALS nodes don't show port labels.
+        et = self.node_data.event_type
+        if et in (_ET.DOT, _ET.GLOBALS):
+            return
+
+        in_ports = self.node_data.input_ports or {0: "Default"}
+        out_ports = self.node_data.output_ports or {0: "Default"}
+
+        in_names = [in_ports[k] for k in sorted(in_ports.keys())]
+        out_names = [out_ports[k] for k in sorted(out_ports.keys())]
+
+        has_named_in = any(n != "Default" for n in in_names)
+        has_named_out = any(n != "Default" for n in out_names)
+
+        if not has_named_in and not has_named_out:
+            return  # nothing to draw
+
+        LINE_H = PORT_LABEL_FONT_SIZE + 4
+        PADDING = 4
+        # Number of rows = max of input vs output port counts (they sit side-by-side per row)
+        max_rows = max(
+            len(in_names) if has_named_in else 0,
+            len(out_names) if has_named_out else 0,
+        )
+        extra_h = max_rows * LINE_H + PADDING * 2
+
+        # Grow the node rect if needed to accommodate the label area.
+        base_h = NODE_SIZES.get(et, (150, 80))[1]
+        # Current rect height may already be grown by character/action labels;
+        # port labels go below everything that's already there.
+        current_rect = self.rect()
+        # Mark where the port label zone starts (below existing content).
+        # We use the existing rect height as the start of the port label zone,
+        # but ensure it's at least base_h.
+        zone_top = max(base_h, current_rect.height())
+        needed_h = zone_top + extra_h
+        if needed_h > current_rect.height():
+            self.setRect(0, 0, current_rect.width(), needed_h)
+            self._reposition_sockets()
+
+        rect = self.rect()
+        text_color = getattr(self, '_node_text_color', QColor(Qt.GlobalColor.white))
+
+        def _make_label(text, x, y, align_right=False):
+            lbl = QGraphicsTextItem(self)
+            lbl.setDefaultTextColor(text_color)
+            lbl.setZValue(10)
+            from PyQt6.QtGui import QFont
+            f = QFont()
+            f.setPointSize(PORT_LABEL_FONT_SIZE)
+            lbl.setFont(f)
+            lbl.setPlainText(text)
+            if align_right:
+                lbl.setPos(rect.width() - lbl.boundingRect().width() - PADDING, y)
+            else:
+                lbl.setPos(PADDING, y)
+            return lbl
+
+        # Draw input port names on the left, output on the right, row by row.
+        for row in range(max_rows):
+            y = zone_top + PADDING + row * LINE_H
+            if has_named_in and row < len(in_names):
+                name = in_names[row]
+                if name != "Default":
+                    self._port_label_items.append(_make_label(f"↳ {name}", 0, y, align_right=False))
+            if has_named_out and row < len(out_names):
+                name = out_names[row]
+                if name != "Default":
+                    self._port_label_items.append(_make_label(f"{name} ↲", 0, y, align_right=True))
+
+    def _reposition_sockets(self):
+        """Reposition all input/output sockets evenly along the node edges based on current rect."""
+        rect = self.rect()
+        num_in = len(self.inputs)
+        for i, sock in enumerate(self.inputs):
+            if num_in == 1:
+                sock.setPos(0, rect.height() / 2)
+            else:
+                sock.setPos(0, rect.height() * (i + 1) / (num_in + 1))
+        if not self.node_data.is_subnetwork:
+            num_out = len(self.outputs)
+            for i, sock in enumerate(self.outputs):
+                if num_out == 1:
+                    sock.setPos(rect.width(), rect.height() / 2)
+                else:
+                    sock.setPos(rect.width(), rect.height() * (i + 1) / (num_out + 1))
 
     def get_subnet_meta(self):
         """Return runtime metadata dict about this node's subnetwork."""
@@ -503,10 +637,22 @@ class BaseNodeItem(QGraphicsRectItem):
 
     def compute_paths(self):
         """Return a list of path strings from the graph root down to this node.
-        DOT nodes are skipped so they don't clutter the path display."""
-        return [' > '.join(n.node_data.name for n in path
-                           if n.node_data.event_type.value != "Dot")
-                for path in _traverse_upstream(self)]
+        DOT nodes are skipped so they don't clutter the path display.
+        When an output port is named (not "Default"), it is appended as
+        "Node; Output: PortName > NextNode"."""
+        result = []
+        for path in _traverse_upstream(self):
+            segments = []
+            for node_item, out_port in path:
+                nd = node_item.node_data
+                if nd.event_type.value == "Dot":
+                    continue
+                if out_port and out_port != "Default":
+                    segments.append(f"{nd.name}; Output: {out_port}")
+                else:
+                    segments.append(nd.name)
+            result.append(' > '.join(segments))
+        return result
 
     def compute_variable_values(self, var_name, default_value=0.0):
         """
@@ -516,7 +662,7 @@ class BaseNodeItem(QGraphicsRectItem):
         seen = []
         for path in _traverse_upstream(self):
             val = default_value
-            for n in path:
+            for n, _port in path:
                 nd = n.node_data
                 if nd.variable_name == var_name:
                     op, delta = nd.variable_op, nd.variable_delta
@@ -569,17 +715,30 @@ class BaseNodeItem(QGraphicsRectItem):
 
         # Start nodes have no Inputs
         if self.node_data.event_type != NodeType.START:
-            in_sock = SocketItem(self, True)
-            in_sock.setPos(0, self.rect().height() / 2)
-            self.inputs.append(in_sock)
-            # Re-attach old connections if it was an input-providing node
-            if old_input_conns and len(old_input_conns) > 0:
-                for conn in old_input_conns[0]:
-                    try:
-                        conn.socket_end = in_sock
-                        in_sock.connections.append(conn)
-                    except RuntimeError:
-                        pass
+            in_ports = self.node_data.input_ports
+            # Ensure at least one port
+            if not in_ports:
+                in_ports = {0: "Default"}
+            num_in = len(in_ports)
+            rect = self.rect()
+            # Spread sockets evenly along left edge
+            for i, (idx, port_name) in enumerate(sorted(in_ports.items())):
+                if num_in == 1:
+                    y_pos = rect.height() / 2
+                else:
+                    y_pos = rect.height() * (i + 1) / (num_in + 1)
+                in_sock = SocketItem(self, True)
+                in_sock.setPos(0, y_pos)
+                in_sock.label_item = None
+                self.inputs.append(in_sock)
+                # Re-attach old connections by index
+                if i < len(old_input_conns):
+                    for conn in old_input_conns[i]:
+                        try:
+                            conn.socket_end = in_sock
+                            in_sock.connections.append(conn)
+                        except RuntimeError:
+                            pass
         
         # End nodes have no Outputs
         if self.node_data.event_type != NodeType.END:
@@ -602,7 +761,8 @@ class BaseNodeItem(QGraphicsRectItem):
                 new_h = max(100, num_outs * 30 + 30) # Extra buffer
                 self.setRect(0, 0, 150, new_h)
                 if self.inputs:
-                    self.inputs[0].setPos(0, new_h / 2)
+                    for j, in_sock in enumerate(self.inputs):
+                        in_sock.setPos(0, new_h * (j + 1) / (len(self.inputs) + 1))
 
                 for i, name in enumerate(end_nodes):
                     out_sock = SocketItem(self, False)
@@ -629,12 +789,24 @@ class BaseNodeItem(QGraphicsRectItem):
                     lbl.setPos(self.rect().width() - lbl.boundingRect().width() - 10, y_pos - 10)
                     out_sock.label_item = lbl # Store to remove later
             else:
-                out_sock = SocketItem(self, False)
-                out_sock.setPos(self.rect().width(), self.rect().height() / 2)
-                self.outputs.append(out_sock)
-                # Re-attach old output connections
-                if old_output_conns and len(old_output_conns) > 0:
-                    for conn in old_output_conns[0]:
+                out_ports = self.node_data.output_ports
+                if not out_ports:
+                    out_ports = {0: "Default"}
+                num_out = len(out_ports)
+                rect = self.rect()
+                for i, (idx, port_name) in enumerate(sorted(out_ports.items())):
+                    if num_out == 1:
+                        y_pos = rect.height() / 2
+                    else:
+                        y_pos = rect.height() * (i + 1) / (num_out + 1)
+                    out_sock = SocketItem(self, False)
+                    out_sock.setPos(rect.width(), y_pos)
+                    out_sock.label_item = None
+                    self.outputs.append(out_sock)
+                    # Re-attach old connections by name first, then by index
+                    conns_to_restore = (old_output_conns_by_name.get(port_name)
+                                        or (old_output_conns[i] if i < len(old_output_conns) else []))
+                    for conn in conns_to_restore:
                         try:
                             conn.socket_start = out_sock
                             out_sock.connections.append(conn)
