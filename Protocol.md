@@ -14,10 +14,11 @@ following capabilities:
 
 ```
 edit_story  llm_chat  query_nodes  find_nodes  get_node  update_node
-system_prompt  system  viewport  viewport_snapshot  viewport_info
+system_prompt  system  viewport  viewport_snapshot  viewport_info  viewport_tap
 ```
 
-This document covers the **viewport remote-control** additions.  All other
+This document covers the **viewport remote-control** additions (`viewport`,
+`viewport_snapshot`, `viewport_info`, `viewport_tap`).  All other
 capabilities (`edit_story`, `llm_chat`, `query_nodes`, `find_nodes`,
 `get_node`, `update_node`, `system_prompt`, `system`) are described in the
 procMessenger shared protocol document.
@@ -66,7 +67,12 @@ single round-trip.
   "payload": {
     "status": "complete",
     "image": "<base64-encoded PNG>",
-    "format": "png"
+    "format": "png",
+    "viewportState": {
+      "x": 0.0,
+      "y": 0.0,
+      "zoom": 1.0
+    }
   }
 }
 ```
@@ -77,7 +83,12 @@ single round-trip.
 {
   "type": "viewport",
   "payload": {
-    "status": "complete"
+    "status": "complete",
+    "viewportState": {
+      "x": 0.0,
+      "y": 0.0,
+      "zoom": 1.0
+    }
   }
 }
 ```
@@ -109,6 +120,10 @@ element; they are processed in insertion order.
 | `output` | `"WebSocket"` | Declares where to deliver the rendered image.  Currently only `"WebSocket"` is supported. |
 | `width` | `number` | Maximum output image width in pixels.  Aspect ratio is preserved. |
 | `height` | `number` | Maximum output image height in pixels.  Aspect ratio is preserved. |
+
+> **`viewportState` is always included in every `viewport` response** (with or without a
+> `Render` command), giving the final centre position and zoom after all pipeline commands
+> have executed.  See [Viewport State](#viewport-state) below.
 
 #### Pipeline Examples
 
@@ -186,12 +201,18 @@ All payload fields are **optional**:
     "status": "complete",
     "image": "<base64-encoded PNG>",
     "format": "png",
-    "nodeId": "abc123"
+    "nodeId": "abc123",
+    "viewportState": {
+      "x": 0.0,
+      "y": 0.0,
+      "zoom": 1.5
+    }
   }
 }
 ```
 
-`nodeId` is `null` when no node was requested.
+`nodeId` is `null` when no node was requested.  `viewportState` always reflects the
+final centre and zoom after the snapshot was taken.
 
 **Response — error**:
 
@@ -291,6 +312,145 @@ Useful for auto-discovery by remote clients.
 
 ---
 
+## Viewport State
+
+Every response from `viewport`, `viewport_snapshot`, and `viewport_tap`
+includes a top-level `viewportState` object so that the remote client can
+stay in sync with the current camera state without polling.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `x` | `number` | Scene-coordinate X of the viewport centre. |
+| `y` | `number` | Scene-coordinate Y of the viewport centre. |
+| `zoom` | `number` | Current uniform zoom scale factor. `1.0` = default 1:1. Values `> 1` are zoomed in; values `< 1` are zoomed out. |
+| `pixelWidth` | `number` | Current native width of the viewport widget in pixels. Use this as `imageWidth` when sending a `viewport_tap`. |
+| `pixelHeight` | `number` | Current native height of the viewport widget in pixels. Use this as `imageHeight` when sending a `viewport_tap`. |
+
+```json
+"viewportState": {
+  "x": 142.5,
+  "y": -80.0,
+  "zoom": 1.25,
+  "pixelWidth": 900,
+  "pixelHeight": 600
+}
+```
+
+> **Tap-coordinate workflow:** capture a snapshot (sending no `width`/`height`
+> to get the full native resolution), read `pixelWidth` / `pixelHeight` from
+> the returned `viewportState`, display the image, then send those same values
+> as `imageWidth` / `imageHeight` in a `viewport_tap` message.
+
+---
+
+### `viewport_tap`
+
+Select the node at a tapped pixel position within a previously delivered
+viewport image.  branchShredder scales the tap coordinates back to viewport
+widget space, hit-tests the scene, selects the node (the inspector and
+sidebar update exactly as though it was clicked with a mouse), and returns
+the node's data in the same shape as `get_node`.
+
+**Request** (any client → branchShredder):
+
+```json
+{
+  "id": "uuid-v4",
+  "type": "viewport_tap",
+  "source": "mobileApp",
+  "target": "branchShredder",
+  "timestamp": "2026-04-30T12:00:00Z",
+  "flags": {},
+  "payload": {
+    "x":           320,
+    "y":           240,
+    "imageWidth":  900,
+    "imageHeight": 600
+  }
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `x` | yes | Pixel X of the tap within the displayed image. |
+| `y` | yes | Pixel Y of the tap within the displayed image. |
+| `imageWidth` | yes | Actual pixel width of the image that was displayed. Use `viewportState.pixelWidth` from the snapshot response for a 1:1 match when no scaling was requested. |
+| `imageHeight` | yes | Actual pixel height of the image that was displayed. Use `viewportState.pixelHeight` similarly. |
+
+**Response — node found**:
+
+```json
+{
+  "type": "viewport_tap",
+  "payload": {
+    "status": "complete",
+    "node": {
+      "nodeId":             "abc123",
+      "name":              "Intro Scene",
+      "type":              "Info",
+      "content":           "Markdown content of the node",
+      "stageNotes":        "Director notes",
+      "selectedCharacters": ["Alice", "Bob"]
+    },
+    "image": "<base64-encoded PNG>",
+    "format": "png",
+    "viewportState": {
+      "x": 142.5,
+      "y": -80.0,
+      "zoom": 1.25,
+      "pixelWidth": 900,
+      "pixelHeight": 600
+    }
+  }
+}
+```
+
+**Response — tap landed on empty space** (`node` is `null`):
+
+```json
+{
+  "type": "viewport_tap",
+  "payload": {
+    "status": "complete",
+    "node": null,
+    "image": "<base64-encoded PNG>",
+    "format": "png",
+    "viewportState": { "x": 0.0, "y": 0.0, "zoom": 1.0, "pixelWidth": 900, "pixelHeight": 600 }
+  }
+}
+```
+
+The `image` is always returned — it reflects the viewport state after the tap
+(with the newly selected node highlighted, or all nodes deselected when the
+tap hit empty space).  The `node` field is `null` when the tap hit empty space.
+
+**Response — error**:
+
+```json
+{
+  "type": "viewport_tap",
+  "payload": {
+    "status": "error",
+    "error": "x, y, imageWidth, and imageHeight are required"
+  }
+}
+```
+
+#### Recommended workflow
+
+1. Send a `viewport_snapshot` (no `width`/`height` to get native resolution).
+2. Read `viewportState.pixelWidth` and `viewportState.pixelHeight` from the response.
+3. Display the image at any size in your WebView.
+4. When the user taps, scale the tap back to native image coordinates:
+   ```
+   native_x = tap_x * (pixelWidth  / displayedWidth)
+   native_y = tap_y * (pixelHeight / displayedHeight)
+   ```
+5. Send `viewport_tap` with `imageWidth: pixelWidth`, `imageHeight: pixelHeight`,
+   `x: native_x`, `y: native_y`.
+
+---
+
 ## Image Encoding
 
 All PNG images returned over WebSocket are **base64-encoded** and carried in
@@ -331,6 +491,7 @@ message:
   "system",
   "viewport",
   "viewport_snapshot",
-  "viewport_info"
+  "viewport_info",
+  "viewport_tap"
 ]
 ```

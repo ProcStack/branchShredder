@@ -18,6 +18,8 @@ Supported message types received:
                           return a PNG snapshot over WebSocket
     viewport_snapshot — shorthand: center on a node (optional) then capture PNG
     viewport_info     — return the list of available viewport commands
+    viewport_tap      — select the node at a tapped image-pixel position and
+                          return its node data
     ping              — responds with pong
 
 Configuration is read from .env in the project root:
@@ -248,6 +250,7 @@ class BranchShredderWSClient:
                     "viewport",
                     "viewport_snapshot",
                     "viewport_info",
+                    "viewport_tap",
                 ],
                 "hostname": "",
                 "nickname": "branchShredder",
@@ -282,6 +285,8 @@ class BranchShredderWSClient:
             self._handle_viewport_snapshot(ws, msg)
         elif t == "viewport_info":
             self._handle_viewport_info(ws, msg)
+        elif t == "viewport_tap":
+            self._handle_viewport_tap(ws, msg)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -739,7 +744,7 @@ class BranchShredderWSClient:
             return
 
         try:
-            png_bytes = self._bridge.run_on_main(
+            png_bytes, vp_state = self._bridge.run_on_main(
                 lambda: self._execute_viewport_commands(commands)
             )
         except Exception as exc:
@@ -751,9 +756,13 @@ class BranchShredderWSClient:
                 "status": "complete",
                 "image": base64.b64encode(png_bytes).decode("ascii"),
                 "format": "png",
+                "viewportState": vp_state,
             }))
         else:
-            ws.send(self._envelope(msg, {"status": "complete"}))
+            ws.send(self._envelope(msg, {
+                "status": "complete",
+                "viewportState": vp_state,
+            }))
 
     def _handle_viewport_snapshot(self, ws, msg: dict):
         """Convenience shorthand: optionally centre on a node, then capture PNG.
@@ -793,7 +802,7 @@ class BranchShredderWSClient:
         commands.append({"viewport": "Render", "output": "WebSocket"})
 
         try:
-            png_bytes = self._bridge.run_on_main(
+            png_bytes, vp_state = self._bridge.run_on_main(
                 lambda: self._execute_viewport_commands(commands)
             )
         except Exception as exc:
@@ -806,6 +815,7 @@ class BranchShredderWSClient:
                 "image": base64.b64encode(png_bytes).decode("ascii"),
                 "format": "png",
                 "nodeId": node_id or None,
+                "viewportState": vp_state,
             }))
         else:
             ws.send(self._envelope(msg, {"status": "error", "error": "Render produced no output"}))
@@ -887,9 +897,69 @@ class BranchShredderWSClient:
             raise RuntimeError("No viewport is available")
         return view.apply_viewport_commands(commands)
 
-    # ------------------------------------------------------------------
+    def _handle_viewport_tap(self, ws, msg: dict):
+        """Select the node at the tapped image-pixel position and return its data.
 
-    def _action_save_scene(self, filename: str) -> dict:
+        Expected payload::
+
+            {
+                "x":           320,
+                "y":           240,
+                "imageWidth":  640,
+                "imageHeight": 427
+            }
+
+        ``x`` / ``y`` are pixel coordinates within the image that was
+        previously delivered by a ``viewport`` or ``viewport_snapshot``
+        response.  ``imageWidth`` / ``imageHeight`` are the actual pixel
+        dimensions of that image (not the requested bounds — use the values
+        from the ``viewportState`` returned with the snapshot, which now
+        includes ``pixelWidth`` / ``pixelHeight``).
+        """
+        import base64
+        payload = msg.get("payload", {})
+        tap_x        = payload.get("x")
+        tap_y        = payload.get("y")
+        image_width  = payload.get("imageWidth")
+        image_height = payload.get("imageHeight")
+
+        if tap_x is None or tap_y is None or not image_width or not image_height:
+            ws.send(self._envelope(msg, {
+                "status": "error",
+                "error": "x, y, imageWidth, and imageHeight are required",
+            }))
+            return
+
+        try:
+            node_data, png_bytes, vp_state = self._bridge.run_on_main(
+                lambda: self._execute_viewport_tap(
+                    float(tap_x), float(tap_y),
+                    int(image_width), int(image_height),
+                )
+            )
+        except Exception as exc:
+            ws.send(self._envelope(msg, {"status": "error", "error": str(exc)}))
+            return
+
+        ws.send(self._envelope(msg, {
+            "status": "complete",
+            "node": node_data,
+            "image": base64.b64encode(png_bytes).decode("ascii"),
+            "format": "png",
+            "viewportState": vp_state,
+        }))
+
+    def _execute_viewport_tap(self, tap_x: float, tap_y: float,
+                               image_width: int, image_height: int):
+        """Call GraphView.tap_at_image_coords on the Qt main thread,
+        then capture a fresh PNG so the caller sees the updated selection."""
+        view = self._view_getter() if self._view_getter else None
+        if not view:
+            raise RuntimeError("No viewport is available")
+        node_data = view.tap_at_image_coords(tap_x, tap_y, image_width, image_height)
+        png_bytes = view.capture_viewport_png()
+        vp_state  = view.get_viewport_state()
+        return (node_data, png_bytes, vp_state)
         import os
         if not self._save_project_fn:
             return {"status": "error", "error": "save_project not configured"}

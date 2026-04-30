@@ -550,10 +550,84 @@ class GraphView(QGraphicsView):
         buf.close()
         return bytes(ba)
 
+    def get_viewport_state(self) -> dict:
+        """Return the current viewport centre (scene coords) and zoom factor.
+
+        Returns a dict with keys ``x``, ``y`` (scene-coordinate centre of the
+        visible area) and ``zoom`` (the current uniform scale factor, where
+        ``1.0`` is the default 1:1 zoom).
+        """
+        center = self.mapToScene(self.viewport().rect().center())
+        zoom = self.transform().m11()   # uniform scale; m11 == m22 for all our transforms
+        vp = self.viewport()
+        return {
+            "x": center.x(),
+            "y": center.y(),
+            "zoom": zoom,
+            "pixelWidth": vp.width(),
+            "pixelHeight": vp.height(),
+        }
+
     def pan_scene(self, dx: float, dy: float):
         """Pan the viewport by (*dx*, *dy*) scene-coordinate units."""
         center = self.mapToScene(self.viewport().rect().center())
         self.centerOn(center.x() + dx, center.y() + dy)
+
+    def tap_at_image_coords(self, tap_x: float, tap_y: float,
+                             image_width: int, image_height: int):
+        """Select the topmost node at the tapped image-pixel position.
+
+        Scales *tap_x* / *tap_y* (pixel coordinates within the delivered
+        image) back to viewport widget space using the ratio
+        ``image / viewport``, then converts to scene coordinates and
+        hit-tests the scene.
+
+        The matching node is selected (triggering the normal
+        ``selectionChanged`` signal so the inspector / sidebar update).
+
+        Returns a node-data dict if a node was found, or ``None`` if the
+        tap landed on empty space.
+        """
+        from .graph_items import BaseNodeItem
+
+        vp = self.viewport()
+        vp_w = vp.width()
+        vp_h = vp.height()
+
+        # Map image-pixel → viewport-widget pixel
+        vp_x = tap_x * vp_w / image_width
+        vp_y = tap_y * vp_h / image_height
+
+        # Clamp to valid viewport bounds
+        vp_x = max(0.0, min(vp_x, float(vp_w - 1)))
+        vp_y = max(0.0, min(vp_y, float(vp_h - 1)))
+
+        scene_pos = self.mapToScene(int(vp_x), int(vp_y))
+
+        # Hit-test: find the topmost BaseNodeItem at this scene position
+        node_item = None
+        for item in self.scene().items(scene_pos):
+            temp = item
+            while temp and not isinstance(temp, BaseNodeItem):
+                temp = temp.parentItem()
+            if isinstance(temp, BaseNodeItem):
+                node_item = temp
+                break
+
+        # Update selection — triggers selectionChanged → on_selection_changed
+        self.scene().clearSelection()
+        if node_item:
+            node_item.setSelected(True)
+            nd = node_item.node_data
+            return {
+                "nodeId": nd.id,
+                "name": nd.name,
+                "type": nd.event_type.value,
+                "content": nd.markdown_content,
+                "stageNotes": nd.stage_notes,
+                "selectedCharacters": nd.selected_characters,
+            }
+        return None
 
     def zoom_by_factor(self, factor: float):
         """Multiply the current zoom level by *factor* (e.g. 0.98 = zoom out 2%)."""
@@ -612,8 +686,10 @@ class GraphView(QGraphicsView):
             width         pixels   — output image width for next Render
             height        pixels   — output image height for next Render
 
-        Returns PNG bytes when a ``viewport: Render`` command is encountered,
-        or ``None`` if no render was requested.
+        Always returns a 2-tuple ``(png_bytes | None, viewport_state)``.
+        ``png_bytes`` is only set when a ``viewport: Render`` command is
+        encountered; ``viewport_state`` is always populated with the final
+        ``x``, ``y``, and ``zoom`` values after all commands have run.
         """
         render_width: int = None
         render_height: int = None
@@ -639,13 +715,14 @@ class GraphView(QGraphicsView):
                     render_height = int(value)
                 elif k == "viewport":
                     if str(value).lower() == "render":
-                        return self.capture_viewport_png(render_width, render_height)
+                        png = self.capture_viewport_png(render_width, render_height)
+                        return (png, self.get_viewport_state())
                 elif k == "output":
                     pass  # only "WebSocket" is currently supported; kept for protocol compat
                 elif k == "_reset_zoom":
                     # Internal: reset transform to identity before applying absolute zoom.
                     self.resetTransform()
-        return None
+        return (None, self.get_viewport_state())
 
 class MainWindow(QMainWindow):
     def __init__(self, autoBoot = True):
