@@ -5,16 +5,20 @@ Registers branchShredder on a procMessenger server and handles incoming
 messages from network peers (mobile app, other scripts, etc.).
 
 Supported message types received:
-    query_nodes    — return INFO / CHARACTER nodes from the loaded project
-    find_nodes     — return a lightweight index of nodes keyed by ID
-    get_node       — return the full content of a single node by ID
-    update_node    — update content / name of a node by ID
-    system_prompt  — return the built-in + project system prompt
-    llm_chat       — forward an LLM request to AIManager and reply
-    edit_story     — alias for llm_chat (protocol compatibility)
-    system         — application-level commands dispatched by action:
-                       recent_scenes, open_recent, new_scene, save_scene
-    ping           — responds with pong
+    query_nodes       — return INFO / CHARACTER nodes from the loaded project
+    find_nodes        — return a lightweight index of nodes keyed by ID
+    get_node          — return the full content of a single node by ID
+    update_node       — update content / name of a node by ID
+    system_prompt     — return the built-in + project system prompt
+    llm_chat          — forward an LLM request to AIManager and reply
+    edit_story        — alias for llm_chat (protocol compatibility)
+    system            — application-level commands dispatched by action:
+                          recent_scenes, open_recent, new_scene, save_scene
+    viewport          — execute a pipeline of viewport commands and optionally
+                          return a PNG snapshot over WebSocket
+    viewport_snapshot — shorthand: center on a node (optional) then capture PNG
+    viewport_info     — return the list of available viewport commands
+    ping              — responds with pong
 
 Configuration is read from .env in the project root:
     PROC_MESSENGER_ENABLED=true
@@ -154,6 +158,7 @@ class BranchShredderWSClient:
         new_project_fn=None,
         save_project_fn=None,
         project_root: str = "",
+        view_getter=None,
     ):
         self.host = host
         self.port = port
@@ -167,6 +172,7 @@ class BranchShredderWSClient:
         self._new_project_fn = new_project_fn
         self._save_project_fn = save_project_fn
         self._project_root = project_root
+        self._view_getter = view_getter
         self._thread: threading.Thread | None = None
         self._running = False
 
@@ -239,6 +245,9 @@ class BranchShredderWSClient:
                     "update_node",
                     "system_prompt",
                     "system",
+                    "viewport",
+                    "viewport_snapshot",
+                    "viewport_info",
                 ],
                 "hostname": "",
                 "nickname": "branchShredder",
@@ -267,6 +276,12 @@ class BranchShredderWSClient:
             self._handle_system_prompt(ws, msg)
         elif t == "system":
             self._handle_system(ws, msg)
+        elif t == "viewport":
+            self._handle_viewport(ws, msg)
+        elif t == "viewport_snapshot":
+            self._handle_viewport_snapshot(ws, msg)
+        elif t == "viewport_info":
+            self._handle_viewport_info(ws, msg)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -696,6 +711,183 @@ class BranchShredderWSClient:
             return {"status": "error", "error": "new_project not configured"}
         self._bridge.run_on_main(self._new_project_fn)
         return {"status": "complete"}
+
+    # ------------------------------------------------------------------
+    # viewport  — remote-control command pipeline
+    # ------------------------------------------------------------------
+
+    def _handle_viewport(self, ws, msg: dict):
+        """Execute a list of viewport commands and optionally return a PNG.
+
+        Expected payload::
+
+            {
+                "commands": [
+                    {"Move": [10, -15]},
+                    {"zoom": 0.98},
+                    {"viewport": "Render", "output": "WebSocket"}
+                ]
+            }
+        """
+        import base64
+        commands = msg.get("payload", {}).get("commands", [])
+        if not isinstance(commands, list) or not commands:
+            ws.send(self._envelope(msg, {
+                "status": "error",
+                "error": "payload.commands must be a non-empty list",
+            }))
+            return
+
+        try:
+            png_bytes = self._bridge.run_on_main(
+                lambda: self._execute_viewport_commands(commands)
+            )
+        except Exception as exc:
+            ws.send(self._envelope(msg, {"status": "error", "error": str(exc)}))
+            return
+
+        if png_bytes is not None:
+            ws.send(self._envelope(msg, {
+                "status": "complete",
+                "image": base64.b64encode(png_bytes).decode("ascii"),
+                "format": "png",
+            }))
+        else:
+            ws.send(self._envelope(msg, {"status": "complete"}))
+
+    def _handle_viewport_snapshot(self, ws, msg: dict):
+        """Convenience shorthand: optionally centre on a node, then capture PNG.
+
+        Expected payload::
+
+            {
+                "nodeId": "optional-node-id",
+                "zoom":   1.0,
+                "width":  1280,
+                "height": 720
+            }
+
+        All fields are optional.  Omitting ``nodeId`` captures the viewport
+        as-is.  ``zoom`` replaces the current zoom level (absolute scale
+        factor, not a multiplier).
+        """
+        import base64
+        payload = msg.get("payload", {})
+        node_id = payload.get("nodeId", "")
+        zoom    = payload.get("zoom")
+        width   = payload.get("width")
+        height  = payload.get("height")
+
+        # Build an equivalent command pipeline and execute it.
+        commands = []
+        if node_id:
+            commands.append({"center_node": node_id})
+        if zoom is not None:
+            # Reset to identity then apply absolute zoom.
+            commands.append({"_reset_zoom": True})
+            commands.append({"zoom": float(zoom)})
+        if width:
+            commands.append({"width": int(width)})
+        if height:
+            commands.append({"height": int(height)})
+        commands.append({"viewport": "Render", "output": "WebSocket"})
+
+        try:
+            png_bytes = self._bridge.run_on_main(
+                lambda: self._execute_viewport_commands(commands)
+            )
+        except Exception as exc:
+            ws.send(self._envelope(msg, {"status": "error", "error": str(exc)}))
+            return
+
+        if png_bytes is not None:
+            ws.send(self._envelope(msg, {
+                "status": "complete",
+                "image": base64.b64encode(png_bytes).decode("ascii"),
+                "format": "png",
+                "nodeId": node_id or None,
+            }))
+        else:
+            ws.send(self._envelope(msg, {"status": "error", "error": "Render produced no output"}))
+
+    def _handle_viewport_info(self, ws, msg: dict):
+        """Return a description of all available viewport commands."""
+        ws.send(self._envelope(msg, {
+            "status": "complete",
+            "commands": {
+                "Move": {
+                    "description": "Pan the viewport by [dx, dy] offset in scene coordinates.",
+                    "value": "[number, number]",
+                    "example": {"Move": [10, -15]},
+                },
+                "zoom": {
+                    "description": (
+                        "Multiply the current zoom level by the given factor. "
+                        "Values < 1 zoom out, values > 1 zoom in (e.g. 0.98 = zoom out 2%)."
+                    ),
+                    "value": "number",
+                    "example": {"zoom": 0.98},
+                },
+                "center": {
+                    "description": "Center the viewport on the given absolute [x, y] scene position.",
+                    "value": "[number, number]",
+                    "example": {"center": [0, 0]},
+                },
+                "center_node": {
+                    "description": "Center the viewport on the node with the given node ID.",
+                    "value": "string (nodeId)",
+                    "example": {"center_node": "abc123"},
+                },
+                "viewport": {
+                    "description": (
+                        "Control viewport rendering. "
+                        "\"Render\" captures a PNG snapshot of the current viewport."
+                    ),
+                    "values": ["Render"],
+                    "example": {"viewport": "Render"},
+                },
+                "output": {
+                    "description": "Set the output destination for a rendered image.",
+                    "values": ["WebSocket"],
+                    "example": {"output": "WebSocket"},
+                },
+                "width": {
+                    "description": "Maximum output image width in pixels (aspect ratio preserved).",
+                    "value": "number",
+                    "example": {"width": 1280},
+                },
+                "height": {
+                    "description": "Maximum output image height in pixels (aspect ratio preserved).",
+                    "value": "number",
+                    "example": {"height": 720},
+                },
+            },
+            "messageTypes": {
+                "viewport": (
+                    "Execute a command pipeline. Send a list of command objects; "
+                    "include {\"viewport\": \"Render\"} to receive a PNG in the response."
+                ),
+                "viewport_snapshot": (
+                    "Convenience shorthand: optionally centre on nodeId, "
+                    "then capture and return a PNG."
+                ),
+                "viewport_info": "Return this command reference.",
+            },
+            "pipelineExample": [
+                {"Move": [10, -15]},
+                {"zoom": 0.98},
+                {"viewport": "Render", "output": "WebSocket"},
+            ],
+        }))
+
+    def _execute_viewport_commands(self, commands: list):
+        """Delegate to GraphView.apply_viewport_commands on the Qt main thread."""
+        view = self._view_getter() if self._view_getter else None
+        if not view:
+            raise RuntimeError("No viewport is available")
+        return view.apply_viewport_commands(commands)
+
+    # ------------------------------------------------------------------
 
     def _action_save_scene(self, filename: str) -> dict:
         import os

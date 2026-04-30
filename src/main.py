@@ -524,6 +524,129 @@ class GraphView(QGraphicsView):
 
         self.setScene(node_item.node_data.subnetwork_id)
 
+    # ------------------------------------------------------------------
+    # Viewport capture & remote-control helpers
+    # ------------------------------------------------------------------
+
+    def capture_viewport_png(self, width: int = None, height: int = None) -> bytes:
+        """Grab the current viewport and return it as PNG bytes.
+
+        Optionally rescale to *width* × *height* (aspect ratio preserved).
+        """
+        from PyQt6.QtCore import QByteArray, QBuffer, QIODevice
+        pixmap = self.grab()
+        if width or height:
+            w = width or pixmap.width()
+            h = height or pixmap.height()
+            pixmap = pixmap.scaled(
+                w, h,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        ba = QByteArray()
+        buf = QBuffer(ba)
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        pixmap.save(buf, "PNG")
+        buf.close()
+        return bytes(ba)
+
+    def pan_scene(self, dx: float, dy: float):
+        """Pan the viewport by (*dx*, *dy*) scene-coordinate units."""
+        center = self.mapToScene(self.viewport().rect().center())
+        self.centerOn(center.x() + dx, center.y() + dy)
+
+    def zoom_by_factor(self, factor: float):
+        """Multiply the current zoom level by *factor* (e.g. 0.98 = zoom out 2%)."""
+        if factor > 0:
+            self.scale(factor, factor)
+
+    def center_on_node_id(self, node_id: str) -> bool:
+        """Center the viewport on the node whose ``id`` matches *node_id*.
+
+        Searches the current scene tree (including subnetworks).
+        Returns ``True`` on success, ``False`` if the node was not found.
+        """
+        scene = self.scene()
+        if not scene:
+            return False
+
+        seen: set = set()
+
+        def _walk(sc):
+            for item in sc.items():
+                if not isinstance(item, BaseNodeItem):
+                    continue
+                nd = item.node_data
+                if nd.id in seen:
+                    continue
+                seen.add(nd.id)
+                if nd.id == node_id:
+                    return item
+                if nd.is_subnetwork and nd.subnetwork_id:
+                    found = _walk(nd.subnetwork_id)
+                    if found:
+                        return found
+            return None
+
+        node_item = _walk(scene)
+        if node_item:
+            self.centerOn(node_item)
+            return True
+        return False
+
+    def apply_viewport_commands(self, commands: list):
+        """Execute a pipeline of viewport commands.
+
+        Each element in *commands* is a dict whose keys name operations and
+        whose values are the operation arguments.  Operations are applied in
+        list order; within a single dict, keys are processed in insertion
+        order.
+
+        Supported keys (case-insensitive):
+            Move          [dx, dy]  — pan by scene-coordinate offset
+            zoom          factor    — multiply current zoom by factor
+            center        [x, y]   — center on absolute scene position
+            center_node   nodeId   — center on a node by its ID
+            viewport      "Render" — capture PNG snapshot
+            output        "WebSocket" — where to deliver the image (metadata)
+            width         pixels   — output image width for next Render
+            height        pixels   — output image height for next Render
+
+        Returns PNG bytes when a ``viewport: Render`` command is encountered,
+        or ``None`` if no render was requested.
+        """
+        render_width: int = None
+        render_height: int = None
+
+        for step in commands:
+            if not isinstance(step, dict):
+                continue
+            for key, value in step.items():
+                k = key.lower()
+                if k == "move":
+                    if isinstance(value, (list, tuple)) and len(value) >= 2:
+                        self.pan_scene(float(value[0]), float(value[1]))
+                elif k == "zoom":
+                    self.zoom_by_factor(float(value))
+                elif k == "center":
+                    if isinstance(value, (list, tuple)) and len(value) >= 2:
+                        self.centerOn(float(value[0]), float(value[1]))
+                elif k == "center_node":
+                    self.center_on_node_id(str(value))
+                elif k == "width":
+                    render_width = int(value)
+                elif k == "height":
+                    render_height = int(value)
+                elif k == "viewport":
+                    if str(value).lower() == "render":
+                        return self.capture_viewport_png(render_width, render_height)
+                elif k == "output":
+                    pass  # only "WebSocket" is currently supported; kept for protocol compat
+                elif k == "_reset_zoom":
+                    # Internal: reset transform to identity before applying absolute zoom.
+                    self.resetTransform()
+        return None
+
 class MainWindow(QMainWindow):
     def __init__(self, autoBoot = True):
         super().__init__()
@@ -722,6 +845,7 @@ class MainWindow(QMainWindow):
             new_project_fn=self.new_project,
             save_project_fn=self._ws_save_project,
             project_root=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            view_getter=lambda: self.view,
         )
         self._ws_client.start()
         self.show_status(
