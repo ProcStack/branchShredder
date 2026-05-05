@@ -252,6 +252,7 @@ class BranchShredderWSClient:
                     "viewport_info",
                     "viewport_tap",
                 ],
+                "functions": ["edit_story"],
                 "hostname": "",
                 "nickname": "branchShredder",
             },
